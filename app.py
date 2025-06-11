@@ -4,36 +4,120 @@
     # not possible through USPS API, it cannot just generate zip+4 without being given a real street address
 # adjust street1 and street2 to simulate real world like i did w/ county
 
-import pandas as pd
-import os
-from random import choice, random 
-from config import FILE, NUMROWS, SHEETNAME, fake, fake_address, ny_zips
+import pandas as pd, os
+from random import choice, random
+
+from config import (
+    FILE, NUMROWS, SHEETNAME,
+    fake, fake_address, ny_zips,
+    NY_ADDR_CSV, REAL_ADDRESS_RATIO
+)
 from generators import generate_complex_name, split_address
 
-def generate_rows(n=NUMROWS) -> pd.DataFrame:
+import zipcodes
+import usps_api
+
+# ---------------------------------------------------------------------------
+# Utility to lazily load a sample of real NY addresses from OpenAddresses CSV
+# ---------------------------------------------------------------------------
+_ADDR_SAMPLE = None
+
+
+def _load_address_sample():
+    """Load (or return cached) DataFrame of NY addresses.
+
+    Only the first ~100k rows are loaded to keep memory use reasonable.
+    Adjust NY_ADDR_CSV / nrows if you have other requirements.
+    """
+    global _ADDR_SAMPLE
+    if _ADDR_SAMPLE is None:
+        if not os.path.exists(NY_ADDR_CSV):
+            raise FileNotFoundError(f"NY address CSV not found: {NY_ADDR_CSV}")
+        print(f"[INFO] Loading NY address sample from {NY_ADDR_CSV} …")
+        _ADDR_SAMPLE = (
+            pd.read_csv(
+                NY_ADDR_CSV,
+                usecols=["NUMBER", "STREET", "UNIT", "CITY", "POSTCODE"],
+                dtype=str,
+                nrows=100_000,
+            )
+            .dropna(subset=["NUMBER", "STREET", "CITY", "POSTCODE"])
+        )
+    return _ADDR_SAMPLE
+
+
+# ---------------------------------------------------------------------------
+# Row factory
+# ---------------------------------------------------------------------------
+
+
+def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
     rows = []
+
     for _ in range(n):
-        rec = choice(ny_zips)
-        full_address = fake_address.street_address()
-        street1, street2 = split_address(full_address)
-        
-        rows.append({
-            "Formtype": "",                           
-            "AccountID": fake.bothify("AC##########"), 
-            "HealthBenefitID": fake.bothify("HX###########"),
-            "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
-            "FirstName": generate_complex_name("first"),
-            "MiddleInitial": fake.random_uppercase_letter(),
-            "LastName": generate_complex_name("last"),
-            "SSN": fake.ssn(),
-            "County": rec["county"].replace("County", "").replace("county", "").strip(), #no county, just name
-            "Street1": street1,
-            "Street2": street2 or fake_address.secondary_address() if random() < 0.3 else "",
-            "Zip": rec["zip_code"],
-            "City": rec["city"],
-            "State": "NY",
-            "Filename": ""      
-        })
+        if random() < REAL_ADDRESS_RATIO:
+            # ------------------- Real NY address --------------------------------
+            addr_df = _load_address_sample()
+            addr = addr_df.sample(1).iloc[0]
+
+            street1 = f"{addr['NUMBER']} {addr['STREET']}".strip()
+            street2 = addr['UNIT'] if pd.notna(addr.get('UNIT')) else ""
+            city = addr['CITY'].title()
+            zip5 = str(addr['POSTCODE'])[:5]
+
+            # County via zipcodes lib (may be empty)
+            zinfo = zipcodes.matching(zip5)
+            county = zinfo[0]['county'].replace("County", "").strip() if zinfo else ""
+
+            # ZIP+4 via USPS
+            try:
+                zip9 = usps_api.lookup_zip9(street1, city, "NY")
+            except Exception as exc:
+                print(f"[WARN] USPS lookup failed for '{street1}, {city}': {exc}")
+                zip9 = zip5
+
+            rows.append({
+                "Formtype": "",  # preserve placeholder
+                "AccountID": fake.bothify("AC##########"),
+                "HealthBenefitID": fake.bothify("HX###########"),
+                "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
+                "FirstName": generate_complex_name("first"),
+                "MiddleInitial": fake.random_uppercase_letter(),
+                "LastName": generate_complex_name("last"),
+                "SSN": fake.ssn(),
+                "County": county,
+                "Street1": street1,
+                "Street2": street2,
+                "Zip": zip9,
+                "City": city,
+                "State": "NY",
+                "Filename": "real",
+            })
+        else:
+            # ------------------- Fake generated address ------------------------
+            rec = choice(ny_zips)
+            full_address = fake_address.street_address()
+            street1, street2_candidate = split_address(full_address)
+            street2 = street2_candidate or (fake_address.secondary_address() if random() < 0.3 else "")
+
+            rows.append({
+                "Formtype": "",
+                "AccountID": fake.bothify("AC##########"),
+                "HealthBenefitID": fake.bothify("HX###########"),
+                "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
+                "FirstName": generate_complex_name("first"),
+                "MiddleInitial": fake.random_uppercase_letter(),
+                "LastName": generate_complex_name("last"),
+                "SSN": fake.ssn(),
+                "County": rec["county"].replace("County", "").replace("county", "").strip(),
+                "Street1": street1,
+                "Street2": street2,
+                "Zip": rec["zip_code"],
+                "City": rec["city"],
+                "State": "NY",
+                "Filename": "fake",
+            })
+
     return pd.DataFrame(rows)
 
 def main():
