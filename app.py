@@ -26,7 +26,7 @@ def generate_rows(n=NUMROWS) -> pd.DataFrame:
             "MiddleInitial": fake.random_uppercase_letter(),
             "LastName": generate_complex_name("last"),
             "SSN": fake.ssn(),
-            "County": f"{rec['county']}",
+            "County": rec["county"].replace("County", "").replace("county", "").strip(), #no county, just name
             "Street1": street1,
             "Street2": street2 or fake_address.secondary_address() if random() < 0.3 else "",
             "Zip": rec["zip_code"],

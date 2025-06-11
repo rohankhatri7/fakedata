@@ -1,5 +1,10 @@
 from random import choice, random
 from config import fake, fake_en, fake_es, fake_address, ny_zips
+from unicodedata import normalize
+
+def _strip_accents(text: str) -> str:
+    """Return the ASCII version of *text* by removing diacritic marks."""
+    return normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
 
 def generate_complex_name(type="first"):
     #more complicated names
@@ -13,12 +18,16 @@ def generate_complex_name(type="first"):
         name_locale = choice(name_funcs[type])
         
         if name_type == "hyphenated":
-            return f"{name_locale()}-{name_locale()}"
+            name = f"{name_locale()}-{name_locale()}"
         elif name_type == "double":
-            return f"{name_locale()} {name_locale()}"
+            name = f"{name_locale()} {name_locale()}"
         else:
-            return name_locale()
-    return choice(name_funcs[type])()
+            name = name_locale()
+    else:
+        name = choice(name_funcs[type])()
+    
+    # no special chars or accents
+    return _strip_accents(name)
 
 def split_address(address):
     # if street 1 contains suite, unit, apt, or #, split and append to street2 col
