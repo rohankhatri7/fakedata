@@ -3,15 +3,15 @@ from typing import Tuple
 
 from config import USPS_CLIENT_ID, USPS_CLIENT_SECRET
 
-# --- USPS OAuth --------------------------------------------------------------------
-_TOKEN_URL = "https://apis-tem.usps.com/oauth2/v3/token"  # swap to prod domain when ready
+# taken from USPS API docs
+_TOKEN_URL = "https://apis-tem.usps.com/oauth2/v3/token"
 _ZIP_ENDPOINT = "https://apis-tem.usps.com/addresses/v3/zipcode"
 
 _cache: dict = {"token": None, "expires": 0}
 
 
+# also from API git; makes OAuth POST once an hour
 def _refresh_token() -> str:
-    """Fetch a fresh OAuth2 bearer-token using client-credentials grant."""
     body = {
         "client_id": USPS_CLIENT_ID,
         "client_secret": USPS_CLIENT_SECRET,
@@ -25,11 +25,10 @@ def _refresh_token() -> str:
     resp.raise_for_status()
     data = resp.json()
     _cache["token"] = data["access_token"]
-    # token TTL is typically 3600 s; be conservative and renew 5 minutes early
     _cache["expires"] = time.time() + int(data.get("expires_in", 3600)) - 300
     return _cache["token"]
 
-
+#return cached token automatically since they refresh every 8 hours
 def _get_token() -> str:
     if not USPS_CLIENT_ID or USPS_CLIENT_ID == "CHANGE_ME":
         raise RuntimeError("USPS_CLIENT_ID / USPS_CLIENT_SECRET environment variables not set.")
@@ -37,14 +36,9 @@ def _get_token() -> str:
         return _refresh_token()
     return _cache["token"]
 
-# ------------------------------------------------------------------------------------
-
 
 def lookup_zip9(street: str, city: str, state: str = "NY") -> str:
-    """Return 9-digit ZIP (ZIP+4) for the supplied address via the USPS Addresses v3 API.
-
-    Falls back to the 5-digit ZIP if the request fails for any reason.
-    """
+    #return 9 digit zip; if fail, defautl to 5 digit zip
     token = _get_token()
     params = {
         "streetAddress": street,
@@ -63,7 +57,5 @@ def lookup_zip9(street: str, city: str, state: str = "NY") -> str:
         if zip5 and plus4:
             return f"{zip5}-{plus4}"
     except Exception:
-        # swallow and fallback below
         pass
-    # Fallback – return 5-digit only
     return params["streetAddress"].split()[-1][:5] 

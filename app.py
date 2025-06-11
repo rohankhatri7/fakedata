@@ -3,8 +3,13 @@
 # 9 digit zip code; 5 digits hyphen 4 digits; look at USPS for some of them
     # not possible through USPS API, it cannot just generate zip+4 without being given a real street address
 # adjust street1 and street2 to simulate real world like i did w/ county
+# work on pdf/image templates
+# look at Dan's repo for image templates
 
-import pandas as pd, os
+import os
+from dotenv import load_dotenv
+load_dotenv()
+import pandas as pd
 from random import choice, random
 
 from config import (
@@ -24,11 +29,7 @@ _ADDR_SAMPLE = None
 
 
 def _load_address_sample():
-    """Load (or return cached) DataFrame of NY addresses.
-
-    Only the first ~100k rows are loaded to keep memory use reasonable.
-    Adjust NY_ADDR_CSV / nrows if you have other requirements.
-    """
+    # load dataframe of NY addresses; first 100k rows only
     global _ADDR_SAMPLE
     if _ADDR_SAMPLE is None:
         if not os.path.exists(NY_ADDR_CSV):
@@ -45,18 +46,13 @@ def _load_address_sample():
         )
     return _ADDR_SAMPLE
 
-
-# ---------------------------------------------------------------------------
-# Row factory
-# ---------------------------------------------------------------------------
-
-
+#generate rows in spreadsheet
 def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
     rows = []
 
     for _ in range(n):
         if random() < REAL_ADDRESS_RATIO:
-            # ------------------- Real NY address --------------------------------
+            # real NY addresses using USPS API and OpenAddresses
             addr_df = _load_address_sample()
             addr = addr_df.sample(1).iloc[0]
 
@@ -77,7 +73,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 zip9 = zip5
 
             rows.append({
-                "Formtype": "",  # preserve placeholder
+                "Formtype": "", #empty for now
                 "AccountID": fake.bothify("AC##########"),
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
@@ -94,7 +90,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 "Filename": "real",
             })
         else:
-            # ------------------- Fake generated address ------------------------
+            # faker generated address, still specific to NY
             rec = choice(ny_zips)
             full_address = fake_address.street_address()
             street1, street2_candidate = split_address(full_address)
