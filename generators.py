@@ -2,13 +2,13 @@ from random import choice, random
 from config import fake, fake_en, fake_es, fake_address, ny_zips
 
 def generate_complex_name(type="first"):
-    """Generate complex first or last names with various formats"""
+    #more complicated names
     name_funcs = {
         "first": [fake_en.first_name, fake_es.first_name],
         "last": [fake_en.last_name, fake_es.last_name]
     }
     
-    if random() < 0.3:  # 30% chance of complex name
+    if random() < 0.3: # probability of generating complex name
         name_type = choice(["hyphenated", "double", "simple"])
         name_locale = choice(name_funcs[type])
         
@@ -21,7 +21,7 @@ def generate_complex_name(type="first"):
     return choice(name_funcs[type])()
 
 def split_address(address):
-    """Split address into street and unit parts"""
+    # if street 1 contains suite, unit, apt, or #, split and append to street2 col
     keywords = ["apt", "suite", "unit", "#", "ste"]
     parts = address.lower().split()
     

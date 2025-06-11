@@ -1,14 +1,8 @@
 #faker does not have built in city nor county functions that can be specific to NY as it will always be random
-# works for zip code
-# look into 'zipcode' library which is a db that can be used to query by state
-# for now, hard code NY cities and counties
 
-# DONE add in spanish names and complex names as well (2 first names or 2 last names, hyphenated names; as close to real world as possible)
-# DONE for ssn, add check to not start with 0 or 9
-# DONE for now state NY, but adjust for other states later
 # 9 digit zip code; 5 digits hyphen 4 digits; look at USPS for some of them
+    # not possible through USPS API, it cannot just generate zip+4 without being given a real street address
 # adjust street1 and street2 to simulate real world like i did w/ county
-# instead of replace, output to new file
 
 import pandas as pd
 import os

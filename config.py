@@ -1,17 +1,16 @@
 import zipcodes
 from faker import Faker
-from random import random  # Add this import
+from random import random 
 
-# File settings
 FILE = "testfaker.xlsx"   
 NUMROWS = 100                
 SHEETNAME = "Sheet1"
 
-# Initialize Faker instances
+#initialize faker
 fake = Faker(['en_US', 'es'])
 fake_en = fake['en_US']
 fake_es = fake['es']
-fake_address = Faker('en_US')
+fake_address = Faker('en_US') # addresses follow US format
 
-# Preload NY zips
+# preload NY zips
 ny_zips = zipcodes.filter_by(state="NY")
