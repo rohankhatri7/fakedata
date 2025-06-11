@@ -1,1 +1,8 @@
 .env
+
+#  generated Excel workbook
+testfaker.xlsx
+
+#  the large OpenAddresses CSVs
+ny/
+*.csv
