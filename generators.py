@@ -7,13 +7,13 @@ def _strip_accents(text: str) -> str:
     return normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
 
 def generate_complex_name(type="first"):
-    #more complicated names
+    # More complicated names
     name_funcs = {
         "first": [fake_en.first_name, fake_es.first_name],
         "last": [fake_en.last_name, fake_es.last_name]
     }
     
-    if random() < 0.3: # probability of generating complex name
+    if random() < 0.3:  # Probability of generating a complex name
         name_type = choice(["hyphenated", "double", "simple"])
         name_locale = choice(name_funcs[type])
         
@@ -26,11 +26,11 @@ def generate_complex_name(type="first"):
     else:
         name = choice(name_funcs[type])()
     
-    # no special chars or accents
+    # No special characters or accents
     return _strip_accents(name)
 
 def split_address(address):
-    # if street 1 contains suite, unit, apt, or #, split and append to street2 col
+    # If street 1 contains suite, unit, apt, or #, split and append to street2 column
     keywords = ["apt", "suite", "unit", "#", "ste"]
     parts = address.lower().split()
     

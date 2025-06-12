@@ -3,14 +3,14 @@ from typing import Tuple
 
 from config import USPS_CLIENT_ID, USPS_CLIENT_SECRET
 
-# taken from USPS API docs
+# Taken from USPS API docs
 _TOKEN_URL = "https://apis-tem.usps.com/oauth2/v3/token"
 _ZIP_ENDPOINT = "https://apis-tem.usps.com/addresses/v3/zipcode"
 
 _cache: dict = {"token": None, "expires": 0}
 
 
-# also from API git; makes OAuth POST once an hour
+# Refresh USPS OAuth token once an hour
 def _refresh_token() -> str:
     body = {
         "client_id": USPS_CLIENT_ID,
@@ -28,7 +28,7 @@ def _refresh_token() -> str:
     _cache["expires"] = time.time() + int(data.get("expires_in", 3600)) - 300
     return _cache["token"]
 
-#return cached token automatically since they refresh every 8 hours
+# Return cached token automatically since they refresh every 8 hours
 def _get_token() -> str:
     if not USPS_CLIENT_ID or USPS_CLIENT_ID == "CHANGE_ME":
         raise RuntimeError("USPS_CLIENT_ID / USPS_CLIENT_SECRET environment variables not set.")
@@ -38,7 +38,7 @@ def _get_token() -> str:
 
 
 def lookup_zip9(street: str, city: str, state: str = "NY") -> str:
-    #return 9 digit zip; if fail, defautl to 5 digit zip
+    # Return 9-digit ZIP code; if fail, default to 5-digit ZIP
     token = _get_token()
     params = {
         "streetAddress": street,
@@ -58,4 +58,4 @@ def lookup_zip9(street: str, city: str, state: str = "NY") -> str:
             return f"{zip5}-{plus4}"
     except Exception:
         pass
-    return params["streetAddress"].split()[-1][:5] 
+    return params["streetAddress"].split()[-1][:5]

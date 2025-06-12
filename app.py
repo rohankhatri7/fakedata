@@ -1,16 +1,9 @@
-#faker does not have built in city nor county functions that can be specific to NY as it will always be random
-
-# 9 digit zip code; 5 digits hyphen 4 digits; look at USPS for some of them
-    # not possible through USPS API, it cannot just generate zip+4 without being given a real street address
-# adjust street1 and street2 to simulate real world like i did w/ county
-# work on pdf/image templates
-# look at Dan's repo for image templates
-
 import os
 from dotenv import load_dotenv
 load_dotenv()
 import pandas as pd
 from random import choice, random
+import re
 
 from config import (
     FILE, NUMROWS, SHEETNAME,
@@ -27,9 +20,7 @@ import usps_api
 # ---------------------------------------------------------------------------
 _ADDR_SAMPLE = None
 
-
 def _load_address_sample():
-    # load dataframe of NY addresses; first 100k rows only
     global _ADDR_SAMPLE
     if _ADDR_SAMPLE is None:
         if not os.path.exists(NY_ADDR_CSV):
@@ -46,20 +37,21 @@ def _load_address_sample():
         )
     return _ADDR_SAMPLE
 
-#generate rows in spreadsheet
+# Generate rows in spreadsheet
 def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
     rows = []
 
     for _ in range(n):
         if random() < REAL_ADDRESS_RATIO:
-            # real NY addresses using USPS API and OpenAddresses
             addr_df = _load_address_sample()
             addr = addr_df.sample(1).iloc[0]
 
             street1 = f"{addr['NUMBER']} {addr['STREET']}".strip()
             street2 = addr['UNIT'] if pd.notna(addr.get('UNIT')) else ""
             city = addr['CITY'].title()
-            zip5 = str(addr['POSTCODE'])[:5]
+            zip5_raw = str(addr['POSTCODE']) if pd.notna(addr['POSTCODE']) else ""
+            m = re.match(r"(\d{5})", zip5_raw)
+            zip5 = m.group(1) if m else ""
 
             # County via zipcodes lib (may be empty)
             zinfo = zipcodes.matching(zip5)
@@ -72,8 +64,12 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 print(f"[WARN] USPS lookup failed for '{street1}, {city}': {exc}")
                 zip9 = zip5
 
+            if not zip9 or not zip9[0].isdigit():
+                zip9 = zip5
+
             rows.append({
-                "Formtype": "", #empty for now
+                "Formtype": "",
+                "RowType": "real",
                 "AccountID": fake.bothify("AC##########"),
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
@@ -87,10 +83,9 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 "Zip": zip9,
                 "City": city,
                 "State": "NY",
-                "Filename": "real",
+                "Filename": "",
             })
         else:
-            # faker generated address, still specific to NY
             rec = choice(ny_zips)
             full_address = fake_address.street_address()
             street1, street2_candidate = split_address(full_address)
@@ -98,6 +93,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
 
             rows.append({
                 "Formtype": "",
+                "RowType": "fake",
                 "AccountID": fake.bothify("AC##########"),
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
@@ -111,7 +107,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 "Zip": rec["zip_code"],
                 "City": rec["city"],
                 "State": "NY",
-                "Filename": "fake",
+                "Filename": "",
             })
 
     return pd.DataFrame(rows)
