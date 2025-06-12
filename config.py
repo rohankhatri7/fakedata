@@ -27,3 +27,25 @@ NY_ADDR_CSV = os.getenv("NY_ADDR_CSV", str(NY_ADDR_DIR / "statewide.csv"))
 
 # 30% of rows are real NY addresses
 REAL_ADDRESS_RATIO = float(os.getenv("REAL_ADDRESS_RATIO", "0.3"))
+
+# ---------------------------------------------------------------------------
+# Output & template settings
+# ---------------------------------------------------------------------------
+
+# CSV output file (same base-name as the Excel workbook)
+CSV_FILE = os.getenv("CSV_FILE", FILE.replace(".xlsx", ".csv"))
+
+# Directory layout for templates & fonts
+BASE_DIR = pathlib.Path(__file__).parent
+TEMPLATE_DIR = BASE_DIR / "templates"
+FONTS_DIR = BASE_DIR / "fonts"
+
+# Specific template used for Social-Security form (PNG)
+# Default looks for "ssn.png" in the project root; override via env-var if you keep it elsewhere.
+SSN_TEMPLATE_PATH = os.getenv("SSN_TEMPLATE_PATH", str(BASE_DIR / "ssn.png"))
+
+# Default handwriting font (TTF)
+HANDWRITING_FONT = os.getenv("HANDWRITING_FONT", str(FONTS_DIR / "handwriting.ttf"))
+
+# Signature-specific font (e.g., a cursive style)
+SIGNATURE_FONT = os.getenv("SIGNATURE_FONT", str(FONTS_DIR / "signature.ttf"))

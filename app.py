@@ -9,7 +9,8 @@ import re
 from config import (
     FILE, NUMROWS, SHEETNAME,
     fake, fake_address, ny_zips,
-    NY_ADDR_CSV, REAL_ADDRESS_RATIO
+    NY_ADDR_CSV, REAL_ADDRESS_RATIO,
+    CSV_FILE
 )
 from generators import generate_complex_name, split_address
 
@@ -31,7 +32,7 @@ def _load_address_sample():
                 NY_ADDR_CSV,
                 usecols=["NUMBER", "STREET", "UNIT", "CITY", "POSTCODE"],
                 dtype=str,
-                nrows=100_000,
+                nrows=10000,
             )
             .dropna(subset=["NUMBER", "STREET", "CITY", "POSTCODE"])
         )
@@ -121,11 +122,22 @@ def main():
             print(f"Replacing data in existing file: {FILE}")
         
         new_rows = generate_rows()
+        # Write Excel
         new_rows.to_excel(FILE,
-                         index=False,
-                         sheet_name=SHEETNAME,
-                         engine="openpyxl")
-        print(f"Success: generated {NUMROWS} rows to '{FILE}' on '{SHEETNAME}'.")
+                          index=False,
+                          sheet_name=SHEETNAME,
+                          engine="openpyxl")
+
+        # Also write CSV for downstream document generation pipelines
+        new_rows.to_csv(CSV_FILE, index=False)
+
+        print(f"Success: generated {NUMROWS} rows to '{FILE}' and '{CSV_FILE}'.")
+
+        # Example: generate one SSN document using the new utility (optional)
+        # from ssn_template import fill_ssn_template
+        # out_png = fill_ssn_template(new_rows.iloc[0].to_dict(), "output/sample_ssn.png")
+        # print(f"Sample SSN document written to {out_png}")
+
     except PermissionError:
         print(f"ERROR: File '{FILE}' is open. Close it and re-run.")
     except Exception as e:
@@ -133,3 +145,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ---------------------------------------------------------------------------
+# Utility to lazily load a sample of real NY addresses from OpenAddresses CSV
+# ---------------------------------------------------------------------------

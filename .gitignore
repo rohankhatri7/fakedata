@@ -11,3 +11,5 @@ ny/
 # Python cache
 __pycache__/
 *.pyc
+
+testfaker.csv
