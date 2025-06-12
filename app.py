@@ -15,11 +15,10 @@ from generators import generate_complex_name, split_address
 import zipcodes
 import usps_api
 
-# ---------------------------------------------------------------------------
-# Utility to lazily load a sample of real NY addresses from OpenAddresses CSV
-# ---------------------------------------------------------------------------
+# load csv
 _ADDR_SAMPLE = None
 
+# load csv rows to keep in dataframe
 def _load_address_sample():
     global _ADDR_SAMPLE
     if _ADDR_SAMPLE is None:
@@ -46,6 +45,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
             addr_df = _load_address_sample()
             addr = addr_df.sample(1).iloc[0]
 
+            #convert csv line to API parameters
             street1 = f"{addr['NUMBER']} {addr['STREET']}".strip()
             street2 = addr['UNIT'] if pd.notna(addr.get('UNIT')) else ""
             city = addr['CITY'].title()
