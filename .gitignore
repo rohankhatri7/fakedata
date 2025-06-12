@@ -1,0 +1,13 @@
+# Ignore environment file
+.env
+
+# Ignore Excel output
+testfaker.xlsx
+
+# Ignore NY data folder
+ny/
+*.csv
+
+# Python cache
+__pycache__/
+*.pyc
