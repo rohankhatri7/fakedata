@@ -41,11 +41,22 @@ TEMPLATE_DIR = BASE_DIR / "templates"
 FONTS_DIR = BASE_DIR / "fonts"
 
 # Specific template used for Social-Security form (PNG)
-# Default looks for "ssn.png" in the project root; override via env-var if you keep it elsewhere.
-SSN_TEMPLATE_PATH = os.getenv("SSN_TEMPLATE_PATH", str(BASE_DIR / "ssn.png"))
+# Default looks for "ssn.png" in the templates directory; override via env-var if needed.
+SSN_TEMPLATE_PATH = os.getenv("SSN_TEMPLATE_PATH", str(TEMPLATE_DIR / "ssn.png"))
 
 # Default handwriting font (TTF)
 HANDWRITING_FONT = os.getenv("HANDWRITING_FONT", str(FONTS_DIR / "handwriting.ttf"))
 
 # Signature-specific font (e.g., a cursive style)
 SIGNATURE_FONT = os.getenv("SIGNATURE_FONT", str(FONTS_DIR / "signature.ttf"))
+
+# ---------------------------------------------------------------------------
+# Sheet assembly settings
+# ---------------------------------------------------------------------------
+
+# Default blank page template; if the file is missing we generate a pure-white sheet
+BLANK_PAGE_PATH = os.getenv("BLANK_PAGE_PATH", str(TEMPLATE_DIR / "blank.png"))
+
+# Default page size (US-Letter at 300 dpi)
+PAGE_WIDTH  = int(os.getenv("PAGE_WIDTH", "2550"))   # 8.5 * 300
+PAGE_HEIGHT = int(os.getenv("PAGE_HEIGHT", "3300"))   # 11  * 300

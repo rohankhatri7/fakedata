@@ -5,30 +5,23 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import SSN_TEMPLATE_PATH, HANDWRITING_FONT, TEMPLATE_DIR, FONTS_DIR, SIGNATURE_FONT
 
-# Updated for 570×360 px template
 DEFAULT_COORDS: Dict[str, Tuple[int, int]] = {
-    "SSN": (170, 110),        # SSN line (shift a bit left)
-    "FullName": (180, 180),   # Name line (shift a bit left)
-    "Signature": (220, 260),  # Signature line (slightly left)
-    "DOB": (380, 290),        # DOB slightly up/left
+    "SSN": ("center", 125),
+    "FullName": ("center", 195),
+    "Signature": ("center", 260),
 }
 
 # Width (and optional height) each field may occupy before font is shrunk
 FIELD_BOXES: Dict[str, Tuple[int, int]] = {
-    #  (max_width_px, max_height_px) – height is advisory (can be None)
     "SSN": (300, None),
     "FullName": (300, None),
     "Signature": (300, None),
-    "DOB": (140, None),
 }
 
 # Font parameters
-DEFAULT_FONT_SIZE = 42  # tweak for your template DPI
+DEFAULT_FONT_SIZE = 42
 DEFAULT_FONT_COLOR = (0, 0, 0)  # black handwriting ink
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
     """Return a FreeType font object for *path*; raise if missing."""
@@ -39,7 +32,7 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
 
 
 def _render_text(text: str, font: ImageFont.FreeTypeFont) -> Image.Image:
-    """Render *text* onto a transparent RGBA image and return it (with random slant)."""
+    """Render *text* onto a transparent RGBA image without rotation."""
     asc, desc = font.getmetrics()
     # measure text size using textbbox (compatible with Pillow ≥10)
     dummy = Image.new("RGB", (1, 1))
@@ -52,9 +45,6 @@ def _render_text(text: str, font: ImageFont.FreeTypeFont) -> Image.Image:
     draw = ImageDraw.Draw(img)
     draw.text((0, 0), text, font=font, fill=DEFAULT_FONT_COLOR)
 
-    # Apply small random rotation to simulate human writing slant
-    angle = random.uniform(-4, 4)  # degrees
-    img = img.rotate(angle, resample=Image.BICUBIC, expand=True)
     return img
 
 
@@ -97,9 +87,6 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
         if field == "Signature":
             base_multiplier = 0.7
             font_path = SIGNATURE_FONT
-        elif field == "DOB":
-            base_multiplier = 0.4
-            font_path = HANDWRITING_FONT
         elif field == "FullName":
             base_multiplier = 0.8
             font_path = HANDWRITING_FONT
@@ -113,7 +100,11 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
         size_px = int(font_size * base_multiplier)
 
         # auto-shrink so text fits inside its predefined box width
-        box_width, _ = FIELD_BOXES.get(field, (base.width - x - 20, None))
+        if isinstance(x, str):  # 'center' placeholder
+            box_default = base.width - 40   # entire card minus 20-px margins
+        else:
+            box_default = base.width - x - 20
+        box_width, _ = FIELD_BOXES.get(field, (box_default, None))
 
         while size_px > 10:
             font_to_use = _load_font(font_path, size_px)
@@ -122,19 +113,19 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
                 break
             size_px = max(10, int(size_px * 0.9))  # shrink 10 % and retry
 
-        # If x is "center", override to horizontally center the text
+        centered = False
         if x == "center":
             x = (base.width - text_img.width) // 2
+            centered = True
 
-        # For DOB, if it would overlap signature, push it down
-        if field == "DOB" and sig_bottom is not None:
-            if y < sig_bottom + 5:
-                y = sig_bottom + 10
+        # nudge centred fields slightly right for visual alignment
+        if centered:
+            x += 20  # shift 20 px to the right; tweak as needed
 
         # paste using alpha mask to preserve transparency
         base.paste(text_img, (int(x), int(y)), text_img)
 
-        # record signature bottom for collision avoidance
+        # capture bottom of signature for potential use later
         if field == "Signature":
             sig_bottom = y + text_img.height
 
