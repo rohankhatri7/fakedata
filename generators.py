@@ -3,11 +3,11 @@ from config import fake, fake_en, fake_es, fake_address, ny_zips
 from unicodedata import normalize
 
 def _strip_accents(text: str) -> str:
-    """Return the ASCII version of *text* by removing diacritic marks."""
+    # return the ASCII version of text
     return normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
 
 def generate_complex_name(type="first"):
-    # More complicated names
+    # more complicated names
     name_funcs = {
         "first": [fake_en.first_name, fake_es.first_name],
         "last": [fake_en.last_name, fake_es.last_name]

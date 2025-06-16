@@ -14,7 +14,7 @@ def main(csv_path: str, limit: int = None, output_dir: str = "output/ssn_docs"):
     print(f"Creating SSN documents from {len(df)} rows … (output dir: {out_root})")
 
     for idx, row in df.iterrows():
-        outfile = out_root / f"ssn_{idx+1:04d}.png"
+        outfile = out_root / f"ssn{idx+1}.png"
         fill_ssn_template(row.to_dict(), str(outfile))
         if (idx + 1) % 10 == 0 or (idx + 1) == len(df):
             print(f"  → {outfile}")

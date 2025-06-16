@@ -16,47 +16,37 @@ fake_address = Faker('en_US')  # Addresses follow US format
 # Preload NY ZIP codes for Faker use
 ny_zips = zipcodes.filter_by(state="NY")
 
-# USPS credentials (set via environment for security; fallback to placeholder)
+# USPS credentials
 USPS_CLIENT_ID = os.getenv("USPS_CLIENT_ID", "CHANGE_ME")
 USPS_CLIENT_SECRET = os.getenv("USPS_CLIENT_SECRET", "CHANGE_ME")
 
-# Folder that holds NY address CSVs downloaded from OpenAddresses
+# folder that holds NY address CSVs downloaded from OpenAddresses
 NY_ADDR_DIR = pathlib.Path(__file__).parent / "ny"
-# Statewide CSV for variety
+# statewide CSV for variety
 NY_ADDR_CSV = os.getenv("NY_ADDR_CSV", str(NY_ADDR_DIR / "statewide.csv"))
 
 # 30% of rows are real NY addresses
 REAL_ADDRESS_RATIO = float(os.getenv("REAL_ADDRESS_RATIO", "0.3"))
 
-# ---------------------------------------------------------------------------
-# Output & template settings
-# ---------------------------------------------------------------------------
-
-# CSV output file (same base-name as the Excel workbook)
+# csv output file
 CSV_FILE = os.getenv("CSV_FILE", FILE.replace(".xlsx", ".csv"))
 
-# Directory layout for templates & fonts
+# directory layout for templates & fonts
 BASE_DIR = pathlib.Path(__file__).parent
 TEMPLATE_DIR = BASE_DIR / "templates"
 FONTS_DIR = BASE_DIR / "fonts"
 
-# Specific template used for Social-Security form (PNG)
-# Default looks for "ssn.png" in the templates directory; override via env-var if needed.
 SSN_TEMPLATE_PATH = os.getenv("SSN_TEMPLATE_PATH", str(TEMPLATE_DIR / "ssn.png"))
 
-# Default handwriting font (TTF)
+# handwriting font
 HANDWRITING_FONT = os.getenv("HANDWRITING_FONT", str(FONTS_DIR / "handwriting.ttf"))
 
-# Signature-specific font (e.g., a cursive style)
+# signature font
 SIGNATURE_FONT = os.getenv("SIGNATURE_FONT", str(FONTS_DIR / "signature.ttf"))
 
-# ---------------------------------------------------------------------------
-# Sheet assembly settings
-# ---------------------------------------------------------------------------
-
-# Default blank page template; if the file is missing we generate a pure-white sheet
+# blank page template
 BLANK_PAGE_PATH = os.getenv("BLANK_PAGE_PATH", str(TEMPLATE_DIR / "blank.png"))
 
-# Default page size (US-Letter at 300 dpi)
-PAGE_WIDTH  = int(os.getenv("PAGE_WIDTH", "2550"))   # 8.5 * 300
-PAGE_HEIGHT = int(os.getenv("PAGE_HEIGHT", "3300"))   # 11  * 300
+# page size (standard US-Letter)
+PAGE_WIDTH  = int(os.getenv("PAGE_WIDTH", "2550"))
+PAGE_HEIGHT = int(os.getenv("PAGE_HEIGHT", "3300"))

@@ -11,14 +11,14 @@ DEFAULT_COORDS: Dict[str, Tuple[int, int]] = {
     "Signature": ("center", 260),
 }
 
-# Width (and optional height) each field may occupy before font is shrunk
+# field boxes for no overlap
 FIELD_BOXES: Dict[str, Tuple[int, int]] = {
     "SSN": (300, None),
     "FullName": (300, None),
     "Signature": (300, None),
 }
 
-# Font parameters
+# font parameters
 DEFAULT_FONT_SIZE = 42
 DEFAULT_FONT_COLOR = (0, 0, 0)  # black handwriting ink
 
@@ -34,7 +34,8 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
 def _render_text(text: str, font: ImageFont.FreeTypeFont) -> Image.Image:
     """Render *text* onto a transparent RGBA image without rotation."""
     asc, desc = font.getmetrics()
-    # measure text size using textbbox (compatible with Pillow ≥10)
+
+    # measure text size using textbbox (compatible with Pillow)
     dummy = Image.new("RGB", (1, 1))
     d = ImageDraw.Draw(dummy)
     bbox = d.textbbox((0, 0), text, font=font)
@@ -47,20 +48,14 @@ def _render_text(text: str, font: ImageFont.FreeTypeFont) -> Image.Image:
 
     return img
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
+# public api
 def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, Tuple[int, int]] = None,
                        font_size: int = DEFAULT_FONT_SIZE):
-    """Overlay *row* values onto the SSN PNG template and write *out_path*.
 
-    Only the fields referenced in *coords* are used.
-    """
+    # overlay row values onto the ssn_png template
     coords = coords or DEFAULT_COORDS
 
-    # Load base template image
+    # load base template image
     template_path = pathlib.Path(SSN_TEMPLATE_PATH)
     if not template_path.exists():
         raise FileNotFoundError(f"SSN template PNG not found at {template_path}.")
@@ -69,20 +64,21 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
     body_font = _load_font(HANDWRITING_FONT, font_size)
     sig_font = _load_font(SIGNATURE_FONT, int(font_size * 0.8))
 
-    # Build derived values the template expects
-    row = dict(raw_row)  # make a copy we can extend
-    # FullName combines first / middle initial (if any) / last
+    # build derived values the template expects
+    row = dict(raw_row)
+    # fullname combines first / middle initial / last
     mi = row.get("MiddleInitial", "").strip()
     mi_part = f" {mi}." if mi else ""
     row["FullName"] = f"{row.get('FirstName', '')}{mi_part} {row.get('LastName', '')}".strip()
-    row["Signature"] = row["FullName"]  # simple assumption; customise if needed
+    row["Signature"] = row["FullName"]
 
-    sig_bottom = None  # track bottom of signature for overlap check
+    sig_bottom = None 
 
     for field, (x, y) in coords.items():
         value = str(row.get(field, "")).strip()
         if not value:
             continue
+
         # pick base font size multiplier
         if field == "Signature":
             base_multiplier = 0.7
@@ -118,18 +114,16 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
             x = (base.width - text_img.width) // 2
             centered = True
 
-        # nudge centred fields slightly right for visual alignment
         if centered:
-            x += 20  # shift 20 px to the right; tweak as needed
+            x += 20 
 
-        # paste using alpha mask to preserve transparency
         base.paste(text_img, (int(x), int(y)), text_img)
 
         # capture bottom of signature for potential use later
         if field == "Signature":
             sig_bottom = y + text_img.height
 
-    # Ensure output directory exists
+    # ensure output directory exists
     pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     base.convert("RGB").save(out_path, format="PNG")
 

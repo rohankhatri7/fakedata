@@ -69,6 +69,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
             if not zip9 or not zip9[0].isdigit():
                 zip9 = zip5
 
+            # real address and zip via USPS
             rows.append({
                 "Formtype": "",
                 "RowType": "real",
@@ -92,7 +93,8 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
             full_address = fake_address.street_address()
             street1, street2_candidate = split_address(full_address)
             street2 = street2_candidate or (fake_address.secondary_address() if random() < 0.3 else "")
-
+            
+            # all Faker generated data
             rows.append({
                 "Formtype": "",
                 "RowType": "fake",
@@ -128,15 +130,10 @@ def main():
                           sheet_name=SHEETNAME,
                           engine="openpyxl")
 
-        # Also write CSV for downstream document generation pipelines
+        # also output to csv format
         new_rows.to_csv(CSV_FILE, index=False)
 
         print(f"Success: generated {NUMROWS} rows to '{FILE}' and '{CSV_FILE}'.")
-
-        # Example: generate one SSN document using the new utility (optional)
-        # from ssn_template import fill_ssn_template
-        # out_png = fill_ssn_template(new_rows.iloc[0].to_dict(), "output/sample_ssn.png")
-        # print(f"Sample SSN document written to {out_png}")
 
     except PermissionError:
         print(f"ERROR: File '{FILE}' is open. Close it and re-run.")
@@ -145,7 +142,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# ---------------------------------------------------------------------------
-# Utility to lazily load a sample of real NY addresses from OpenAddresses CSV
-# ---------------------------------------------------------------------------
