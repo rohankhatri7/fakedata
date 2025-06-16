@@ -124,7 +124,7 @@ def _overlap(a: Tuple[int, int, int, int], b: Tuple[int, int, int, int]) -> bool
     return not (ax2 < bx1 or ax1 > bx2 or ay2 < by1 or ay1 > by2)
 
 
-def assemble(cards_dir: str, out_dir: str, num_pages: Optional[int] = None):
+def assemble(cards_dir: str, out_dir: str, num_pages: Optional[int] = None, grayscale: bool = True):
     # one SSN per sheet, if not specified, defaults to number in ssn_docs
     cards = sorted(Path(cards_dir).glob("*.png"))
     if not cards:
@@ -152,8 +152,13 @@ def assemble(cards_dir: str, out_dir: str, num_pages: Optional[int] = None):
         else:
             print(f"WARNING: could not place IDs for page {page_num}")
 
+        if grayscale:
+            page_to_save = page.convert("L")  # 8-bit greyscale
+        else:
+            page_to_save = page
+
         out_path = Path(out_dir) / f"sheet{page_num}.png"
-        page.save(out_path, "PNG")
+        page_to_save.save(out_path, "PNG")
         print(f"→ wrote {out_path}")
         page_num += 1
 
@@ -163,6 +168,7 @@ if __name__ == "__main__":
     ap.add_argument("--cards", default="output/ssn_docs", help="Directory holding individual SSN card PNGs")
     ap.add_argument("--out", default="output/sheets", help="Directory to write composite sheets")
     ap.add_argument("-n", "--pages", type=int, default=None, help="Number of pages (and therefore cards) to generate – defaults to all found cards")
+    ap.add_argument("--color", action="store_true", help="Save sheets in full colour (override default grayscale)")
     args = ap.parse_args()
 
-    assemble(args.cards, args.out, args.pages) 
+    assemble(args.cards, args.out, args.pages, grayscale=not args.color) 
