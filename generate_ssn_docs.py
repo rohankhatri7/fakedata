@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Generate SSN document PNGs for each row in the CSV produced by app.py."""
+# generate SSN documents from CSV
 import os, pathlib, pandas as pd, argparse, random
 from config import CSV_FILE, SSN_TEMPLATE_PATH, HANDWRITING_FONT
 from ssn_template import fill_ssn_template
