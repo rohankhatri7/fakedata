@@ -5,13 +5,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import SSN_TEMPLATE_PATH, HANDWRITING_FONT, TEMPLATE_DIR, FONTS_DIR, SIGNATURE_FONT
 
+# coordinates for each rendered element on the SSN card (x, y)
 DEFAULT_COORDS: Dict[str, Tuple[int, int]] = {
-    "SSN": ("center", 125),
-    "FullName": ("center", 195),
-    "Signature": ("center", 260),
+    "SSN": ("center", 135),
+    "FullName": ("center", 190),
+    "Signature": ("center", 245),
 }
 
-# field boxes for no overlap
+# width (and optional height) each field may occupy before font is shrunk
 FIELD_BOXES: Dict[str, Tuple[int, int]] = {
     "SSN": (300, None),
     "FullName": (300, None),
@@ -24,7 +25,7 @@ DEFAULT_FONT_COLOR = (0, 0, 0)  # black handwriting ink
 
 
 def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
-    """Return a FreeType font object for *path*; raise if missing."""
+    # return a FreeType font object; raise if missing
     font_path = pathlib.Path(path)
     if not font_path.exists():
         raise FileNotFoundError(f"Font not found: {font_path}")
@@ -32,7 +33,7 @@ def _load_font(path: str, size: int) -> ImageFont.FreeTypeFont:
 
 
 def _render_text(text: str, font: ImageFont.FreeTypeFont) -> Image.Image:
-    """Render *text* onto a transparent RGBA image without rotation."""
+    # render text onto a transparent RGBA image without rotation
     asc, desc = font.getmetrics()
 
     # measure text size using textbbox (compatible with Pillow)
@@ -84,10 +85,10 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
             base_multiplier = 0.7
             font_path = SIGNATURE_FONT
         elif field == "FullName":
-            base_multiplier = 0.8
+            base_multiplier = 0.5  # even smaller font
             font_path = HANDWRITING_FONT
         elif field == "SSN":
-            base_multiplier = 0.9
+            base_multiplier = 0.8
             font_path = HANDWRITING_FONT
         else:
             base_multiplier = 1.0
