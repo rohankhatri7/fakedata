@@ -3,12 +3,12 @@ from typing import Dict, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
-from config import SSN_TEMPLATE_PATH, HANDWRITING_FONT, TEMPLATE_DIR, FONTS_DIR, SIGNATURE_FONT
+from config import SSN_TEMPLATE_PATH, HANDWRITING_FONT, TEMPLATE_DIR, FONTS_DIR, SIGNATURE_FONT, OPENSANS_FONT
 
 # coordinates for each rendered element on the SSN card (x, y)
 DEFAULT_COORDS: Dict[str, Tuple[int, int]] = {
-    "SSN": ("center", 135),
-    "FullName": ("center", 190),
+    "SSN": ("center", 145),
+    "FullName": ("center", 200),
     "Signature": ("center", 245),
 }
 
@@ -86,10 +86,10 @@ def fill_ssn_template(raw_row: Dict[str, str], out_path: str, coords: Dict[str, 
             font_path = SIGNATURE_FONT
         elif field == "FullName":
             base_multiplier = 0.5  # even smaller font
-            font_path = HANDWRITING_FONT
+            font_path = OPENSANS_FONT
         elif field == "SSN":
-            base_multiplier = 0.8
-            font_path = HANDWRITING_FONT
+            base_multiplier = 0.75  # slightly smaller
+            font_path = OPENSANS_FONT
         else:
             base_multiplier = 1.0
             font_path = HANDWRITING_FONT

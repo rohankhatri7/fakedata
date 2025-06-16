@@ -41,6 +41,9 @@ SSN_TEMPLATE_PATH = os.getenv("SSN_TEMPLATE_PATH", str(TEMPLATE_DIR / "ssn.png")
 # handwriting font
 HANDWRITING_FONT = os.getenv("HANDWRITING_FONT", str(FONTS_DIR / "handwriting.ttf"))
 
+# OpenSans font (used for SSN number and full name)
+OPENSANS_FONT = os.getenv("OPENSANS_FONT", str(FONTS_DIR / "OpenSans_SemiCondensed-Regular.ttf"))
+
 # signature font
 SIGNATURE_FONT = os.getenv("SIGNATURE_FONT", str(FONTS_DIR / "signature.ttf"))
 
