@@ -17,10 +17,10 @@ def main(csv=CSV_FILE, limit=None, out_dir="output/passports"):
     print(f"Writing {len(df)} passports → {out_root.resolve()}")
 
     for i, row in df.iterrows():
-        fname = out_root / f"passport{i}.png"
+        fname = out_root / f"uspassport{i+1}.png"
         fill_passport_template(row.to_dict(), str(fname))
         if (i + 1) % 10 == 0 or i + 1 == len(df):
-            print(f"  {fname}")
+            print(f"  {fname.name}")
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Generate filled-in passport PNGs.")

@@ -14,7 +14,7 @@ def main(csv_path: str = CSV_FILE, limit: int | None = None, out_dir: str = "out
     print(f"Creating {len(df)} Indian passports → {out_root}")
 
     for idx, row in df.iterrows():
-        outfile = out_root / f"indiapassport{idx}.png"
+        outfile = out_root / f"indiapassport{idx+1}.png"
         fill_india_passport_template(row.to_dict(), str(outfile))
         if (idx + 1) % 10 == 0 or (idx + 1) == len(df):
             print(f"  → {outfile.name}")
