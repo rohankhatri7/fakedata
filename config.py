@@ -33,7 +33,7 @@ CSV_FILE = os.getenv("CSV_FILE", FILE.replace(".xlsx", ".csv"))
 
 # directory layout for templates & fonts
 BASE_DIR = pathlib.Path(__file__).parent
-TEMPLATE_DIR = BASE_DIR / "templates"
+TEMPLATE_DIR = BASE_DIR / "pngtemplates"
 FONTS_DIR = BASE_DIR / "fonts"
 
 SSN_TEMPLATE_PATH = os.getenv("SSN_TEMPLATE_PATH", str(TEMPLATE_DIR / "ssn.png"))
