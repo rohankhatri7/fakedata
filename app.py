@@ -5,6 +5,7 @@ load_dotenv()
 import pandas as pd
 from random import choice, random
 import re
+from gender_guesser.detector import Detector
 
 from config import (
     FILE, NUMROWS, SHEETNAME,
@@ -38,6 +39,20 @@ def _load_address_sample():
         )
     return _ADDR_SAMPLE
 
+# Add detector instance after imports
+_detector = Detector(case_sensitive=False)
+
+# helper function
+def _gender_code(first_name: str) -> str:
+    """Return "M" or "F" using gender_guesser; fall back to random for ambiguous/unknown."""
+    g = _detector.get_gender(first_name.split()[0])
+    if g in ("male", "mostly_male"):
+        return "M"
+    elif g in ("female", "mostly_female"):
+        return "F"
+    else:
+        return "M" if random() < 0.5 else "F"
+
 # Generate rows in spreadsheet
 def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
     rows = []
@@ -70,15 +85,20 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 zip9 = zip5
 
             # real address and zip via USPS
+            first_name = generate_complex_name("first")
+            last_name = generate_complex_name("last")
+            gender = _gender_code(first_name)
+            
             rows.append({
                 "Formtype": "",
                 "RowType": "real",
                 "AccountID": fake.bothify("AC##########"),
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
-                "FirstName": generate_complex_name("first"),
+                "FirstName": first_name,
                 "MiddleInitial": fake.random_uppercase_letter(),
-                "LastName": generate_complex_name("last"),
+                "LastName": last_name,
+                "Gender": gender,
                 "SSN": fake.ssn(),
                 "County": county,
                 "Street1": street1,
@@ -95,15 +115,20 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
             street2 = street2_candidate or (fake_address.secondary_address() if random() < 0.3 else "")
             
             # all Faker generated data
+            first_name = generate_complex_name("first")
+            last_name = generate_complex_name("last")
+            gender = _gender_code(first_name)
+            
             rows.append({
                 "Formtype": "",
                 "RowType": "fake",
                 "AccountID": fake.bothify("AC##########"),
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
-                "FirstName": generate_complex_name("first"),
+                "FirstName": first_name,
                 "MiddleInitial": fake.random_uppercase_letter(),
-                "LastName": generate_complex_name("last"),
+                "LastName": last_name,
+                "Gender": gender,
                 "SSN": fake.ssn(),
                 "County": rec["county"].replace("County", "").replace("county", "").strip(),
                 "Street1": street1,

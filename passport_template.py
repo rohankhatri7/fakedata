@@ -15,6 +15,7 @@ DEFAULT_COORDS = {
     "Nationality":  (500, 1510),
     "DOB":          (500, 1430),
     "PlaceOfBirth": (500, 1680),
+    "Sex":          (1240, 1509),  # Fine adjustment up and left
 }
 
 FIELD_BOXES = {
@@ -22,11 +23,13 @@ FIELD_BOXES = {
     "GivenNames":    650,
     "Nationality":   650,
     "PlaceOfBirth":  650,
+    "Sex":           200,
     "DOB":           320,
 }
 
 BASE_FONT_SIZE = 28
 SIG_FONT_SIZE  = 60
+SEX_FONT_SIZE  = 40
 
 FONT_COLOR = (0, 0, 0)
 
@@ -57,6 +60,7 @@ def fill_passport_template(raw: Dict[str, str], out_path: str,
     fullname = f"{given} {surname}".strip()
     dob_dt = datetime.datetime.strptime(raw["DOB"], "%m/%d/%Y")
     dob_str = dob_dt.strftime("%d %b %Y").upper()
+    sex = (raw.get("Gender", "")).upper()
 
     fields = {
         # render order (top-to-bottom)
@@ -65,12 +69,19 @@ def fill_passport_template(raw: Dict[str, str], out_path: str,
         "GivenNames":    fullname,
         "Nationality":   "UNITED STATES OF AMERICA",
         "DOB":           dob_str,
+        "Sex":           sex,
     }
 
     for key, text in fields.items():
         x, y = coords[key]
         font_path = SIGNATURE_FONT if key == "Signature" else OPENSANS_FONT
-        size      = SIG_FONT_SIZE if key == "Signature" else BASE_FONT_SIZE
+        # Larger font for Signature and Sex fields
+        if key == "Signature":
+            size = SIG_FONT_SIZE
+        elif key == "Sex":
+            size = SEX_FONT_SIZE
+        else:
+            size = BASE_FONT_SIZE
         max_w     = FIELD_BOXES.get(key, base.width)
 
         # auto-shrink loop (unchanged)
