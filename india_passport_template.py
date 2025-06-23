@@ -6,7 +6,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import TEMPLATE_DIR, OPENSANS_FONT, SIGNATURE_FONT
 
-INDIA_PASSPORT_TEMPLATE_PATH = TEMPLATE_DIR / "indiapassport.png"
+# Use the cleaned template (without white boxes) generated via cleanup_template.py
+# This ensures new documents blend seamlessly with the background.
+INDIA_PASSPORT_TEMPLATE_PATH = TEMPLATE_DIR / "cleanindiapassport.png"
 
 # Coordinates scaled down from US template to fit 960x1363 canvas
 DEFAULT_COORDS: Dict[str, Tuple[int, int]] = {
