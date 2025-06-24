@@ -13,22 +13,19 @@ from config import (
     CSV_FILE, HANDWRITING_FONT
 )
 
-###############################################################################
-# Tunables
-###############################################################################
-MARGIN               = 50          # all-around page margin (pixels)
+
+MARGIN               = 50
 SCALE_MIN, SCALE_MAX = 1.2, 1.6   # random scale factor applied to passport PNG
 ID_FONT_SIZE         = 48          # AccountID / HealthBenefitID text size
-###############################################################################
+
 
 
 def _load_blank_page() -> Image.Image:
-    """Return a PIL image sized to the configured PAGE_WIDTH × PAGE_HEIGHT."""
     template = Path(BLANK_PAGE_PATH)
     if template.exists():
         page = Image.open(template).convert("RGB")
         return page.resize((PAGE_WIDTH, PAGE_HEIGHT), Image.LANCZOS)
-    # fallback – plain white if template is missing
+    # fallback – plain white sheet
     return Image.new("RGB", (PAGE_WIDTH, PAGE_HEIGHT), "white")
 
 
@@ -56,19 +53,14 @@ def _place_passport_on_page(
     csv_index: int,
     csv_rows,
 ) -> bool:
-    """Paste a single passport onto *page* including the ID text.
-
-    Returns True on success, False if text could not be placed without
-    overlapping other elements (caller may retry with a new random layout).
-    """
     boxes: List[Tuple[int, int, int, int]] = []  # track occupied rectangles
 
-    # Load & scale the passport image
+    # load & scale the passport image
     passport = Image.open(passport_path).convert("RGBA")
     scale = random.uniform(SCALE_MIN, SCALE_MAX)
     passport = passport.resize((int(passport.width * scale), int(passport.height * scale)), Image.LANCZOS)
 
-    # Try random positions up to N times to avoid overlap / margins
+    # try random positions up to N times to avoid overlap / margins
     for _ in range(50):
         x = random.randint(MARGIN, PAGE_WIDTH - passport.width - MARGIN)
         y = random.randint(MARGIN, PAGE_HEIGHT - passport.height - MARGIN)
@@ -81,9 +73,7 @@ def _place_passport_on_page(
     boxes.append(rect)
     page.paste(passport, (x, y), passport)
 
-    # ---------------------------------------------------------------------
-    # Render AccountID and HealthBenefitID (if present) near the passport.
-    # ---------------------------------------------------------------------
+    # render AccountID and HealthBenefitID (if present) near the passport.
     if csv_index < len(csv_rows):
         row = csv_rows[csv_index]
         aid = str(row.get("AccountID", "")).strip()
@@ -94,14 +84,13 @@ def _place_passport_on_page(
             text_imgs = [_render_text(t, font) for t in (aid, hid) if t]
             total_h = sum(img.height for img in text_imgs) + 4 * (len(text_imgs) - 1)
 
-            # Where can we place? (above or below passport)
             above_ok = (y - 10 - total_h) >= MARGIN
             below_ok = (y + passport.height + 10 + total_h) <= (PAGE_HEIGHT - MARGIN)
             if not above_ok and not below_ok:
                 return False  # nowhere to place IDs without clipping
 
             place_above = above_ok if (above_ok and not below_ok) else (below_ok if (below_ok and not above_ok) else random.choice((True, False)))
-            align      = random.choice((0, 1, 2))  # left, centre, right within passport width
+            align      = random.choice((0, 1, 2)) 
 
             base_y = (y - 10 - total_h) if place_above else (y + passport.height + 10)
 
@@ -113,7 +102,7 @@ def _place_passport_on_page(
                 else:
                     tx = x + passport.width - img.width
 
-                # Keep inside page margins
+                # keep inside page margins
                 tx = max(MARGIN, min(tx, PAGE_WIDTH - MARGIN - img.width))
 
                 id_rect = (tx, base_y, tx + img.width, base_y + img.height)
@@ -127,9 +116,6 @@ def _place_passport_on_page(
     return True
 
 
-# ---------------------------------------------------------------------------
-# Public entry-point
-# ---------------------------------------------------------------------------
 
 def assemble(cards_dir: str, out_dir: str,
             num_pages: Optional[int] = None,
@@ -167,7 +153,7 @@ def assemble(cards_dir: str, out_dir: str,
 
     Path(out_dir).mkdir(parents=True, exist_ok=True)
 
-    # Load CSV once – we rely on row index parity between generated passports and CSV rows.
+    # load CSV once – we rely on row index parity between generated passports and CSV rows.
     import pandas as pd
     csv_rows = pd.read_csv(CSV_FILE).to_dict("records")
 
@@ -183,7 +169,7 @@ def assemble(cards_dir: str, out_dir: str,
             page = _load_blank_page()
             _place_passport_on_page(page, passport_path, idx - 1, csv_rows)
 
-        page_to_save = page.convert("L") if grayscale else page
+        page_to_save = page.convert("L")  # always greyscale
         out_path = Path(out_dir) / f"{passport_type}_passport_sheet{idx}.png"
         page_to_save.save(out_path, "PNG")
         print(f"→ wrote {out_path}")
@@ -195,7 +181,6 @@ if __name__ == "__main__":
     ap.add_argument("--cards", default="output/passports", help="Directory containing generated passport PNGs")
     ap.add_argument("--out",   default="output/passport_sheets", help="Destination directory for sheets")
     ap.add_argument("-n", "--pages", type=int, default=None, help="Number of pages to generate (defaults to all found passports)")
-    ap.add_argument("--color", action="store_true", help="Keep sheets in colour (default greyscale)")
 
     args = ap.parse_args()
-    assemble(args.cards, args.out, args.pages, grayscale=not args.color, passport_type=args.type) 
+    assemble(args.cards, args.out, args.pages, grayscale=True, passport_type=args.type) 

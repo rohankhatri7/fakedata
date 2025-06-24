@@ -1,14 +1,5 @@
 #!/usr/bin/env python
-"""Generate multi-page documents combining SSN and passport pages.
-
-Examples
---------
-# 5 pages of SSN cards (one per page) → PDF
-python generate_multi_page_doc.py --sequence ssn:5 --outfile output/ssn5.pdf
-
-# 3 U.S. passport pages followed by 2 SSN pages
-python generate_multi_page_doc.py --sequence us:3,ssn:2 --outfile output/mixed.pdf
-"""
+# Generate multi-page documents combining SSN and passport pages.
 from __future__ import annotations
 
 import argparse, shutil, tempfile
@@ -21,9 +12,6 @@ from PIL import Image
 import assemble_ssn      # SSN pages
 import assemble_passport_pages  # Passport pages
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _collect_card_images(prefix: str, count: int, source_dir: Path) -> List[Path]:
     """Return *count* image paths whose filename starts with *prefix*.
@@ -48,18 +36,16 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
         form_type is one of "ssn", "us", "india".
     outfile : str
         Destination PDF path.
-    grayscale : bool
-        Whether to convert sheets to greyscale in the final PDF.
     """
     tmp_root = Path(tempfile.mkdtemp(prefix="multi_doc_"))
     final_pages: List[Path] = []
 
     try:
-        # Ensure output sub-dirs
+        # ensure output sub-dirs
         ssn_cards_dir    = Path("output/ssn_docs")
         passports_dir    = Path("output/passports")
 
-        # Keep counters to know which images have already been used
+        # keep counters to know which images have already been used
         used_counters = {
             "ssn": 0,
             "us": 0,
@@ -93,7 +79,13 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
 
                     out_dir = tmp_root / f"us_passport_sheets_{len(final_pages)}"
                     out_dir.mkdir(parents=True, exist_ok=True)
-                    assemble_passport_pages.assemble(str(td_path), str(out_dir), num_pages=count, grayscale=grayscale)
+                    assemble_passport_pages.assemble(
+                        str(td_path),
+                        str(out_dir),
+                        num_pages=count,
+                        grayscale=grayscale,
+                        passport_type="us",
+                    )
                     final_pages.extend(sorted(out_dir.glob("*.png")))
 
             elif form_type == "india":
@@ -107,7 +99,13 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
 
                     out_dir = tmp_root / f"india_passport_sheets_{len(final_pages)}"
                     out_dir.mkdir(parents=True, exist_ok=True)
-                    assemble_passport_pages.assemble(str(td_path), str(out_dir), num_pages=count, grayscale=grayscale)
+                    assemble_passport_pages.assemble(
+                        str(td_path),
+                        str(out_dir),
+                        num_pages=count,
+                        grayscale=grayscale,
+                        passport_type="india",
+                    )
                     final_pages.extend(sorted(out_dir.glob("*.png")))
             else:
                 raise ValueError(f"Unknown form type: {form_type}")
@@ -116,7 +114,7 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
             print("Nothing generated – check inputs.")
             return
 
-        # Sort final_pages by modification time to preserve generation order
+        # sort final_pages by modification time to preserve generation order
         final_pages = sorted(final_pages, key=lambda p: p.stat().st_mtime)
 
         # Build PDF
@@ -125,7 +123,7 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
         pdf_path = Path(outfile).expanduser().resolve()
         pdf_path.parent.mkdir(parents=True, exist_ok=True)
         first.save(pdf_path, save_all=True, append_images=rest)
-        print(f"✅ Multi-page document written → {pdf_path} ({len(final_pages)} pages)")
+        print(f"Multi-page document written → {pdf_path} ({len(final_pages)} pages)")
 
     finally:
         # optional: remove temporary dirs – comment out if you want to inspect
@@ -155,7 +153,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Generate a multi-page PDF from SSN and passport sheets.")
     ap.add_argument("--sequence", required=True, help="Comma-separated list form:count, e.g. 'ssn:5,us:3'", type=_parse_sequence)
     ap.add_argument("--outfile", required=True, help="Output PDF path")
-    ap.add_argument("--color", action="store_true", help="Keep colour pages instead of default greyscale")
     args = ap.parse_args()
 
-    generate(args.sequence, args.outfile, grayscale=not args.color) 
+    generate(args.sequence, args.outfile, grayscale=True) 
