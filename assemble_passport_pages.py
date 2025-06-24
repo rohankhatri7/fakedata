@@ -1,18 +1,5 @@
 #!/usr/bin/env python
-"""Assemble filled passport PNGs onto blank letter-size sheets.
 
-This mirrors the behaviour of `assemble_pages.py` (used for SSN cards):
-  • One passport image per sheet (scales and positions randomly).
-  • Writes AccountID and HealthBenefitID near the passport using a handwritten font.
-  • Saves pages in greyscale by default for realistic photocopy look.
-
-Usage:
-    python assemble_passport_pages.py \
-        --cards output/passports \
-        --out   output/passport_sheets \
-        --pages 100          # generate only first 100 pages
-        --color              # keep colour instead of greyscale
-"""
 from __future__ import annotations
 
 import argparse, random
@@ -144,8 +131,33 @@ def _place_passport_on_page(
 # Public entry-point
 # ---------------------------------------------------------------------------
 
-def assemble(cards_dir: str, out_dir: str, num_pages: Optional[int] = None, grayscale: bool = True):
-    passports = sorted(Path(cards_dir).glob("*.png"))
+def assemble(cards_dir: str, out_dir: str,
+            num_pages: Optional[int] = None,
+            grayscale: bool = True,
+            passport_type: str = "us"):
+    """Assemble one passport per sheet.
+
+    Parameters
+    ----------
+    cards_dir : str
+        Directory containing filled-in passport PNGs.
+    out_dir : str
+        Where to save the finished sheet PNGs.
+    num_pages : int | None
+        How many sheets to create (defaults to all passports found).
+    grayscale : bool
+        Convert sheets to 8-bit greyscale.
+    passport_type : {"us", "india"}
+        Filter input PNGs by filename prefix so the same folder can hold
+        both U.S. and Indian passport images.
+    """
+
+    prefix_map = {"us": "uspassport", "india": "indiapassport"}
+    prefix = prefix_map.get(passport_type.lower())
+    if prefix is None:
+        raise ValueError("passport_type must be 'us' or 'india'")
+
+    passports = sorted(Path(cards_dir).glob(f"{prefix}*.png"))
     if not passports:
         print(f"No passport PNGs found in {cards_dir}")
         return
@@ -172,17 +184,18 @@ def assemble(cards_dir: str, out_dir: str, num_pages: Optional[int] = None, gray
             _place_passport_on_page(page, passport_path, idx - 1, csv_rows)
 
         page_to_save = page.convert("L") if grayscale else page
-        out_path = Path(out_dir) / f"passport_sheet{idx}.png"
+        out_path = Path(out_dir) / f"{passport_type}_passport_sheet{idx}.png"
         page_to_save.save(out_path, "PNG")
         print(f"→ wrote {out_path}")
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Compose one filled-in passport per sheet (letter size).")
+    ap = argparse.ArgumentParser(description="Compose filled-in passport sheets (one per page).")
+    ap.add_argument("--type", choices=["us", "india"], default="us", help="Which passport images to use (filename prefix)")
     ap.add_argument("--cards", default="output/passports", help="Directory containing generated passport PNGs")
     ap.add_argument("--out",   default="output/passport_sheets", help="Destination directory for sheets")
     ap.add_argument("-n", "--pages", type=int, default=None, help="Number of pages to generate (defaults to all found passports)")
     ap.add_argument("--color", action="store_true", help="Keep sheets in colour (default greyscale)")
 
     args = ap.parse_args()
-    assemble(args.cards, args.out, args.pages, grayscale=not args.color) 
+    assemble(args.cards, args.out, args.pages, grayscale=not args.color, passport_type=args.type) 
