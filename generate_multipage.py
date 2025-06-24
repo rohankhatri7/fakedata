@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Generate multi-page documents combining SSN and passport pages.
 from __future__ import annotations
 
@@ -9,23 +8,15 @@ from typing import List, Tuple
 from PIL import Image
 
 # local imports (assembly helpers)
-import assemble_ssn      # SSN pages
-import assemble_passport_pages  # Passport pages
+import assemble_ssn # ssn pages
+import assemble_passport_pages # passport pages
 
 
 def _collect_card_images(prefix: str, count: int, source_dir: Path) -> List[Path]:
-    """Return *count* image paths whose filename starts with *prefix*.
-    Raises ValueError if fewer than *count* found.
-    """
     images = sorted(source_dir.glob(f"{prefix}*.png"))
     if len(images) < count:
         raise ValueError(f"Not enough {prefix} card images in {source_dir} (need {count}, have {len(images)})")
     return images[:count]
-
-
-# ---------------------------------------------------------------------------
-# Main generator
-# ---------------------------------------------------------------------------
 
 def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = True):
     """Generate combined PDF per *sequence* list and write to *outfile*.
@@ -44,12 +35,14 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
         # ensure output sub-dirs
         ssn_cards_dir    = Path("output/ssn_docs")
         passports_dir    = Path("output/passports")
+        paystub_dir      = Path("output/paystubs")
 
         # keep counters to know which images have already been used
         used_counters = {
             "ssn": 0,
             "us": 0,
             "india": 0,
+            "paystub": 0,
         }
 
         for form_type, count in sequence:
@@ -107,6 +100,19 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
                         passport_type="india",
                     )
                     final_pages.extend(sorted(out_dir.glob("*.png")))
+
+            elif form_type in ("paystub", "stub"):
+                cards = _collect_card_images("paystub", count, paystub_dir)[used_counters["paystub"]: used_counters["paystub"] + count]
+                used_counters["paystub"] += count
+
+                out_dir = tmp_root / f"paystub_pages_{len(final_pages)}"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                # Copy selected cards to ensure we have fresh mtimes for ordering
+                for c in cards:
+                    dest = out_dir / c.name
+                    shutil.copy(c, dest)
+                    final_pages.append(dest)
+
             else:
                 raise ValueError(f"Unknown form type: {form_type}")
 
@@ -126,13 +132,10 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
         print(f"Multi-page document written → {pdf_path} ({len(final_pages)} pages)")
 
     finally:
-        # optional: remove temporary dirs – comment out if you want to inspect
+        # remove temporary dirs 
         shutil.rmtree(tmp_root, ignore_errors=True)
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def _parse_sequence(seq_str: str) -> List[Tuple[str, int]]:
     parts = [p.strip() for p in seq_str.split(',') if p.strip()]
@@ -150,8 +153,8 @@ def _parse_sequence(seq_str: str) -> List[Tuple[str, int]]:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Generate a multi-page PDF from SSN and passport sheets.")
-    ap.add_argument("--sequence", required=True, help="Comma-separated list form:count, e.g. 'ssn:5,us:3'", type=_parse_sequence)
+    ap = argparse.ArgumentParser(description="Generate a multi-page PDF from SSN, passport, and pay-stub sheets.")
+    ap.add_argument("--sequence", required=True, help="Comma-separated list form:count, e.g. 'ssn:5,us:3,paystub:2'", type=_parse_sequence)
     ap.add_argument("--outfile", required=True, help="Output PDF path")
     args = ap.parse_args()
 
