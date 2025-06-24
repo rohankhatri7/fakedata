@@ -13,20 +13,15 @@ from config import (
 
 TEMPLATE_PATH = TEMPLATE_DIR / "cleanadp_paystub.png"
 
-ADDRESS_XY        = (880, 290)   # move right & down
-ADDRESS_LINE_SP   = 40           # keep spacing
-LOWER_LEFT_XY     = (215, 1560)  # move name a bit down
-SIGNATURE_XY      = (800, 1720)  # move signature a bit left
+ADDRESS_XY        = (880, 290)   
+ADDRESS_LINE_SP   = 40  
+LOWER_LEFT_XY     = (215, 1560) 
+SIGNATURE_XY      = (800, 1720) 
 
-# Font sizes (smaller to fit)
-NAME_SIZE         = 28   # smaller for lower-left
-ADDR_SIZE         = 24   # smaller for address block
-SIGNATURE_SIZE    = 30   # enlarge signature
+NAME_SIZE         = 28  
+ADDR_SIZE         = 24  
+SIGNATURE_SIZE    = 30  
 
-
-# ---------------------------------------------------------------------------
-# Font helpers
-# ---------------------------------------------------------------------------
 
 def _load_font(path: pathlib.Path, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(path), size)
@@ -42,20 +37,12 @@ def _render(text: str, font: ImageFont.FreeTypeFont) -> Image.Image:
     return img
 
 
-# ---------------------------------------------------------------------------
-# Single-stub writer
-# ---------------------------------------------------------------------------
-
 def fill_adp_paystub(row: dict, out_path: str):
     base = Image.open(TEMPLATE_PATH).convert("RGBA")
 
-    # ------------------------------------------------------
-    # Build strings
-    # ------------------------------------------------------
     mi = row.get("MiddleInitial", "").strip()
     full_name = f"{row.get('FirstName','').strip()} {mi + ' ' if mi else ''}{row.get('LastName','').strip()}".upper()
 
-    # Ensure we don't call .upper() on NaN/float values
     def _u(val: object) -> str:
         return str(val).strip().upper() if val and str(val).lower() != "nan" else ""
 
@@ -66,9 +53,6 @@ def fill_adp_paystub(row: dict, out_path: str):
     zip5    = str(row.get("Zip", "")).strip()[:5]
     city_line = f"{city}, {state} {zip5}".strip()
 
-    # ------------------------------------------------------
-    # Paste address block (max 4 lines)
-    # ------------------------------------------------------
     font_addr = _load_font(OPENSANS_FONT, ADDR_SIZE)
     lines = [full_name, street1]
     if street2:
@@ -81,28 +65,17 @@ def fill_adp_paystub(row: dict, out_path: str):
         base.paste(txt_img, (x, y), txt_img)
         y += ADDRESS_LINE_SP
 
-    # ------------------------------------------------------
-    # Lower-left name block
-    # ------------------------------------------------------
     font_name = _load_font(OPENSANS_FONT, NAME_SIZE)
     ll_img    = _render(full_name, font_name)
     base.paste(ll_img, LOWER_LEFT_XY, ll_img)
 
-    # ------------------------------------------------------
-    # Signature (hand-writing font)
-    # ------------------------------------------------------
     font_sig = _load_font(SIGNATURE_FONT, SIGNATURE_SIZE)
     sig_img  = _render(full_name, font_sig)
     base.paste(sig_img, SIGNATURE_XY, sig_img)
 
-    # ------------------------------------------------------
     pathlib.Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     base.convert("RGB").save(out_path, "PNG")
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def main(csv_path: str = CSV_FILE, limit: int | None = None, out_dir: str = "output/paystubs"):
     df = pd.read_csv(csv_path)
