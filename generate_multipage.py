@@ -1,9 +1,9 @@
-# Generate multi-page documents combining SSN and passport pages.
+# Generate multi-page documents
 from __future__ import annotations
 
-import argparse, shutil, tempfile
+import argparse, shutil, tempfile, random
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from PIL import Image
 
@@ -12,22 +12,39 @@ import assemble_ssn # ssn pages
 import assemble_passport_pages # passport pages
 
 
-def _collect_card_images(prefix: str, count: int, source_dir: Path) -> List[Path]:
+def _get_paystub_type() -> str:
+    #Randomly select between 'adp' and 'paychex' paystub types, falling back to available type if one is empty.
+    adp_dir = Path("output/paystubs/adp")
+    paychex_dir = Path("output/paystubs/paychex")
+    
+    adp_count = len(list(adp_dir.glob("*.png"))) if adp_dir.exists() else 0
+    paychex_count = len(list(paychex_dir.glob("*.png"))) if paychex_dir.exists() else 0
+    
+    if adp_count == 0 and paychex_count == 0:
+        raise ValueError("No paystub images found in either output/paystubs/adp/ or output/paystubs/paychex/")
+    elif adp_count == 0:
+        return "paychex"
+    elif paychex_count == 0:
+        return "adp"
+    else:
+        return random.choice(["adp", "paychex"])
+
+def _collect_card_images(prefix: str, count: int, source_dir: Path, paystub_type: Optional[str] = None) -> List[Path]:
+    if paystub_type == "paychex":
+        # For paychex, the prefix is different
+        prefix = "paychex"
+    elif paystub_type == "adp":
+        # ADP files now use 'adp' prefix
+        prefix = "adp"
+        
+    # Look for PNG files with the specified prefix
     images = sorted(source_dir.glob(f"{prefix}*.png"))
     if len(images) < count:
         raise ValueError(f"Not enough {prefix} card images in {source_dir} (need {count}, have {len(images)})")
     return images[:count]
 
 def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = True):
-    """Generate combined PDF per *sequence* list and write to *outfile*.
-
-    Parameters
-    ----------
-    sequence : list of (form_type, count)
-        form_type is one of "ssn", "us", "india".
-    outfile : str
-        Destination PDF path.
-    """
+    #Generate combined PDF per sequence list
     tmp_root = Path(tempfile.mkdtemp(prefix="multi_doc_"))
     final_pages: List[Path] = []
 
@@ -35,14 +52,15 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
         # ensure output sub-dirs
         ssn_cards_dir    = Path("output/ssn_docs")
         passports_dir    = Path("output/passports")
-        paystub_dir      = Path("output/paystubs")
+        paystub_dir      = Path("output/paystubs/adp")  # Default to ADP paystubs
 
         # keep counters to know which images have already been used
         used_counters = {
             "ssn": 0,
             "us": 0,
             "india": 0,
-            "paystub": 0,
+            "paystub": 0, # ADP paystubs
+            "paychex": 0, # Paychex paystubs
         }
 
         for form_type, count in sequence:
@@ -101,13 +119,71 @@ def generate(sequence: List[Tuple[str, int]], outfile: str, grayscale: bool = Tr
                     )
                     final_pages.extend(sorted(out_dir.glob("*.png")))
 
-            elif form_type in ("paystub", "stub"):
-                cards = _collect_card_images("paystub", count, paystub_dir)[used_counters["paystub"]: used_counters["paystub"] + count]
-                used_counters["paystub"] += count
+            elif form_type in ("paystub", "stub", "paycheck"):
+                # Try to collect all needed paystubs, alternating between ADP and Paychex if needed
+                remaining = count
+                collected = []
+                
+                while remaining > 0:
+                    # Get available counts for each paystub type
+                    adp_available = 0
+                    paychex_available = 0
+                    
+                    # Check how many ADP paystubs are available
+                    adp_dir = Path("output/paystubs/adp")
+                    if adp_dir.exists():
+                        adp_files = sorted(adp_dir.glob("adp*.png"))
+                        adp_available = len(adp_files) - used_counters["paystub"]
+                    
+                    # Check how many Paychex paystubs are available
+                    paychex_dir = Path("output/paystubs/paychex")
+                    if paychex_dir.exists():
+                        paychex_files = sorted(paychex_dir.glob("paychex*.png"))
+                        paychex_available = len(paychex_files) - used_counters["paychex"]
+                    
+                    # If no more paystubs available, break the loop
+                    if adp_available <= 0 and paychex_available <= 0:
+                        break
+                    
+                    # Choose which type to use (prioritize the type with more available)
+                    if adp_available >= paychex_available and adp_available > 0:
+                        paystub_type = "adp"
+                        counter_key = "paystub"
+                        available = adp_available
+                        paystub_dir = adp_dir
+                    elif paychex_available > 0:
+                        paystub_type = "paychex"
+                        counter_key = "paychex"
+                        available = paychex_available
+                        paystub_dir = paychex_dir
+                    else:
+                        break
+                    
+                    to_take = min(remaining, available)
+                    
+                    if to_take > 0:
+                        print(f"Using {to_take} {paystub_type.upper()} paystubs from {paystub_dir}")
+                        try:
+                            if paystub_type == "adp":
+                                cards = sorted(paystub_dir.glob("adp*.png"))[used_counters[counter_key]:used_counters[counter_key] + to_take]
+                            else:
+                                cards = sorted(paystub_dir.glob("paychex*.png"))[used_counters[counter_key]:used_counters[counter_key] + to_take]
+                                
+                            collected.extend(cards)
+                            used_counters[counter_key] += to_take
+                            remaining -= to_take
+                        except (ValueError, IndexError) as e:
+                            print(f"  Warning: {e}")
+                            break
+                
+                if remaining > 0:
+                    raise ValueError(f"Not enough paystub images available (needed {count}, found {count - remaining})")
+                
+                # Process the collected cards
+                cards = collected
 
                 out_dir = tmp_root / f"paystub_pages_{len(final_pages)}"
                 out_dir.mkdir(parents=True, exist_ok=True)
-                # Copy selected cards to ensure we have fresh mtimes for ordering
                 for c in cards:
                     dest = out_dir / c.name
                     shutil.copy(c, dest)

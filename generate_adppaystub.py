@@ -77,7 +77,7 @@ def fill_adp_paystub(row: dict, out_path: str):
     base.convert("RGB").save(out_path, "PNG")
 
 
-def main(csv_path: str = CSV_FILE, limit: int | None = None, out_dir: str = "output/paystubs"):
+def main(csv_path: str = CSV_FILE, limit: int | None = None, out_dir: str = "output/paystubs/adp"):
     df = pd.read_csv(csv_path)
     if limit is not None:
         df = df.head(limit)
@@ -87,7 +87,7 @@ def main(csv_path: str = CSV_FILE, limit: int | None = None, out_dir: str = "out
     print(f"Creating {len(df)} pay-stubs → {out_root}")
 
     for idx, row in df.iterrows():
-        outfile = out_root / f"paystub{idx+1}.png"
+        outfile = out_root / f"adp{idx+1}.png"
         fill_adp_paystub(row.to_dict(), str(outfile))
         if (idx + 1) % 10 == 0 or (idx + 1) == len(df):
             print(f"  → {outfile.name}")
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fill ADP pay-stub template with address & signature from CSV rows.")
     parser.add_argument("--csv", default=CSV_FILE, help="CSV file produced by app.py (default: %(default)s)")
     parser.add_argument("--limit", type=int, default=None, help="Generate only the first N rows")
-    parser.add_argument("--out", default="output/paystubs", help="Output directory for pay-stub PNGs")
+    parser.add_argument("--out", default="output/paystubs/adp", help="Output directory for pay-stub PNGs")
     args = parser.parse_args()
 
     main(args.csv, args.limit, args.out) 
