@@ -113,7 +113,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fill Paychex pay-stub template with address & SSN from CSV rows.")
     parser.add_argument("--csv", default=CSV_FILE, help="CSV file produced by app.py (default: %(default)s)")
     parser.add_argument("--limit", type=int, default=None, help="Generate only the first N rows")
-    parser.add_argument("--out", default="output/paychex", help="Output directory for Paychex stub PNGs")
+    parser.add_argument("--out", default="output/paystubs/paychex", help="Output directory for Paychex stub PNGs")
     args = parser.parse_args()
 
     main(args.csv, args.limit, args.out)
