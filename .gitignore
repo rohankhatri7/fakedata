@@ -14,4 +14,8 @@ __pycache__/
 
 testfaker.csv
 
-output/
+# Only ignore root output directory
+/output/
+
+# Explicitly track template_tools/output/ by not ignoring it
+!template_tools/output/
