@@ -8,10 +8,6 @@ testfaker.xlsx
 ny/
 *.csv
 
-# Template Tools
-template_tools/output/
-template_tools/templates/
-
 # Python cache
 __pycache__/
 *.pyc
