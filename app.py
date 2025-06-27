@@ -87,6 +87,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
             # real address and zip via USPS
             first_name = generate_complex_name("first")
             last_name = generate_complex_name("last")
+            middle_initial = fake.random_uppercase_letter()
             gender = _gender_code(first_name)
             
             rows.append({
@@ -96,8 +97,9 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
                 "FirstName": first_name,
-                "MiddleInitial": fake.random_uppercase_letter(),
+                "MiddleInitial": middle_initial,
                 "LastName": last_name,
+                "FullName": f"{first_name} {middle_initial}. {last_name}".strip(),
                 "Gender": gender,
                 "SSN": fake.ssn(),
                 "County": county,
@@ -117,6 +119,7 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
             # all Faker generated data
             first_name = generate_complex_name("first")
             last_name = generate_complex_name("last")
+            middle_initial = fake.random_uppercase_letter()
             gender = _gender_code(first_name)
             
             rows.append({
@@ -126,8 +129,9 @@ def generate_rows(n: int = NUMROWS) -> pd.DataFrame:
                 "HealthBenefitID": fake.bothify("HX###########"),
                 "DOB": fake.date_of_birth(minimum_age=18, maximum_age=90).strftime("%m/%d/%Y"),
                 "FirstName": first_name,
-                "MiddleInitial": fake.random_uppercase_letter(),
+                "MiddleInitial": middle_initial,
                 "LastName": last_name,
+                "FullName": f"{first_name} {middle_initial}. {last_name}".strip(),
                 "Gender": gender,
                 "SSN": fake.ssn(),
                 "County": rec["county"].replace("County", "").replace("county", "").strip(),
