@@ -166,46 +166,61 @@ class TemplateCleaner:
             
         return output_path
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Clean document template by removing annotated areas')
-    parser.add_argument('template', help='Path to the template image')
-    parser.add_argument('--json', help='Path to the LabelMe JSON annotation file')
-    parser.add_argument('--output-dir', default='output', help='Output directory for cleaned template and spec')
-    parser.add_argument('--method', default='inpaint_enhanced', choices=['inpaint_enhanced', 'white'],
-                        help='Method to use for cleaning')
-    parser.add_argument('--blur', type=int, default=1, help='Blur kernel size for smoothing (odd number, 0 to disable)')
+def main():
+    parser = argparse.ArgumentParser(description='Clean document template and generate spec file')
+    parser.add_argument('doc_type', help='Document type (e.g., passport, adp_paystub)')
+    parser.add_argument('--output-dir', default='output', help='Output directory (default: output)')
+    parser.add_argument('--method', default='inpaint_enhanced', 
+                       choices=['inpaint_enhanced', 'white'], 
+                       help='Cleaning method (default: inpaint_enhanced)')
+    parser.add_argument('--blur', type=int, default=5, 
+                       help='Gaussian blur kernel size (odd number, default: 5)')
+    
     args = parser.parse_args()
     
-    # If JSON file not provided, try to find it based on template name
-    if not args.json:
-        json_path = Path(args.template).with_suffix('.json')
-        if json_path.exists():
-            args.json = str(json_path)
-        else:
-            raise FileNotFoundError(f"No JSON annotation file provided and could not find {json_path}")
-    
-    # Ensure output directory exists
+    # Set up paths
+    templates_dir = Path(__file__).parent / 'templates'
     output_dir = Path(args.output_dir)
+    
+    # Build file paths
+    template_path = templates_dir / f"{args.doc_type}.png"
+    json_path = templates_dir / f"{args.doc_type}.json"
+    
+    # Check if files exist
+    if not template_path.exists():
+        print(f" Template not found: {template_path}")
+        print(f"Please make sure '{args.doc_type}.png' exists in the templates/ directory")
+        return
+        
+    if not json_path.exists():
+        print(f" Annotation file not found: {json_path}")
+        print(f"Please create annotations using LabelMe and save as '{args.doc_type}.json'")
+        return
+    
+    # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
     
     try:
-        # Process template
-        print(f"Processing template: {args.template}")
-        cleaner = TemplateCleaner(args.template)
-        print("Loading annotations...")
-        cleaner.load_annotations(args.json)
+        # Initialize cleaner
+        cleaner = TemplateCleaner(template_path)
+        
+        # Load annotations
+        cleaner.load_annotations(json_path)
+        
+        # Clean template
+        cleaned_path = cleaner.clean_template(output_dir / f"{args.doc_type}_clean.png", method=args.method, blur_kernel=args.blur)
         
         # Save cleaned template and spec
-        print(f"Cleaning template using {args.method} method...")
-        cleaned_path = cleaner.clean_template(output_dir / f"{Path(args.template).stem}_clean.png", method=args.method, blur_kernel=args.blur)
-        print("Generating spec...")
-        spec_path = cleaner.save_spec(output_dir / f"{Path(args.template).stem}_spec.json")
+        spec_path = cleaner.save_spec(output_dir / f"{args.doc_type}_spec.json")
         
-        print(f"Cleaned template saved to: {cleaned_path}")
-        print(f"Template spec saved to: {spec_path}")
-
+        print(f" Success!")
+        print(f"Cleaned template: {cleaned_path}")
+        print(f"Template spec: {spec_path}")
+        
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f" Error: {str(e)}")
         import traceback
         traceback.print_exc()
-        exit(1)
+
+if __name__ == "__main__":
+    main()
