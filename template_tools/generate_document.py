@@ -122,7 +122,7 @@ class DocumentGenerator:
                         
                         for value in field_values:
                             bbox = draw.textbbox((0, 0), value, font=font)
-                            total_height += (bbox[3] - bbox[1]) * 1.2
+                            total_height += (bbox[3] - bbox[1]) * 1.08  # 8% spacing
                             max_width = max(max_width, bbox[2] - bbox[0])
                         
                         if total_height <= abs_h * 0.9 and max_width <= abs_w * 0.9:
@@ -136,7 +136,7 @@ class DocumentGenerator:
                 if best_size > 0:
                     try:
                         font = self._get_font(name, best_size)
-                        y_offset = 2
+                        y_offset = 0  
                         
                         for value in field_values:
                             if value:
@@ -144,13 +144,12 @@ class DocumentGenerator:
                                 text_width = text_bbox[2] - text_bbox[0]
                                 text_height = text_bbox[3] - text_bbox[1]
                                 
-                                text_x = abs_x + 5
+                                text_x = abs_x + 2  
                                 text_y = abs_y + y_offset
                                 
                                 draw.text((text_x, text_y), value, font=font, fill=(0, 0, 0, 255))
                                 
-                                y_offset += text_height * 1.2
-                                y_offset += text_height * 1.2
+                                y_offset += text_height * 1.08  # 8% spacing between lines
                         
                     except Exception:
                         pass 
