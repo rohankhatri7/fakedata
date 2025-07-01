@@ -4,7 +4,7 @@
   "height": 1930,
   "fields": [
     {
-      "name": "FullName",
+      "name": "FullName,Street1,Street2,City,State,Zip",
       "bbox": [
         0.578,
         0.14766839378238342,
@@ -22,7 +22,7 @@
       ]
     },
     {
-      "name": "FullName",
+      "name": "Signature",
       "bbox": [
         0.532,
         0.8616580310880829,

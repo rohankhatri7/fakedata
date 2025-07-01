@@ -13,7 +13,6 @@ SIGNATURE_FONT = FONTS_DIR / 'signature.ttf'
 
 class DocumentGenerator:
     def __init__(self, template_path, spec_path, font_path=None, font_size=12):
-        """Initialize the document generator with template and spec"""
         try:
             self.template = Image.open(template_path).convert('RGBA')
             self.spec = self._load_spec(spec_path)
@@ -21,7 +20,6 @@ class DocumentGenerator:
             self.font_size = font_size
             self.font_cache = {}
             
-            # Set default font if none provided
             if not self.font_path and DEFAULT_FONT.exists():
                 self.font_path = str(DEFAULT_FONT)
             
@@ -29,12 +27,10 @@ class DocumentGenerator:
             raise Exception(f"Failed to initialize DocumentGenerator: {str(e)}")
         
     def _load_spec(self, spec_path):
-        """Load the template specification"""
         with open(spec_path) as f:
             return json.load(f)
     
     def _get_font(self, field_name, default_size=None):
-        """Get font with caching and fallback handling"""
         size = default_size or self.font_size
         cache_key = f"{field_name}_{size}"
         
@@ -56,7 +52,6 @@ class DocumentGenerator:
         return self.font_cache[cache_key]
     
     def generate(self, data, output_path=None):
-        """Generate document with given data"""
         try:
             img = self.template.copy()
             draw = ImageDraw.Draw(img)
@@ -64,71 +59,102 @@ class DocumentGenerator:
             for field in self.spec['fields']:
                 name = field['name']
                 
-                # Skip fields named 'blank'
                 if name == 'blank':
                     continue
                     
-                # Skip signature field here - we'll handle it after regular fields
                 if name.lower() == 'signature':
                     continue
                     
-                if name not in data:
-                    continue
-                    
                 x, y, w, h = field['bbox']
-                value = str(data[name])
                 
-                # Skip empty values
-                if not value.strip():
+                if w <= 0 or h <= 0:
                     continue
-                
-                # Convert relative coordinates to absolute
+                # convert labelme coords to absolute
                 abs_x = int(x * self.spec['width'])
                 abs_y = int(y * self.spec['height'])
                 abs_w = int(w * self.spec['width'])
                 abs_h = int(h * self.spec['height'])
                 
-                # Binary search for best font size
-                low, high = 6, abs_h * 2  # Start with reasonable bounds
-                best_size = 0
-                font = None
+                # Handle multiple fields in one label (comma-separated)
+                field_names = [n.strip() for n in field['name'].split(',')]
                 
-                while low <= high:
-                    mid = (low + high) // 2
-                    try:
-                        font = self._get_font(name, mid)
-                        text_bbox = draw.textbbox((0, 0), value, font=font)
-                        text_width = text_bbox[2] - text_bbox[0]
-                        text_height = text_bbox[3] - text_bbox[1]
-                        
-                        if text_width <= abs_w * 0.9 and text_height <= abs_h * 0.9:
-                            best_size = mid
-                            low = mid + 1  # Try larger font
+                # Group City and State together if they appear consecutively
+                processed_fields = []
+                i = 0
+                while i < len(field_names):
+                    if field_names[i] == 'City' and i + 1 < len(field_names) and field_names[i+1] == 'State':
+                        processed_fields.append(('City,State', i, i+1))
+                        i += 2
+                    else:
+                        processed_fields.append((field_names[i], i, i))
+                        i += 1
+                
+                field_values = []
+                for field_info in processed_fields:
+                    field_name, start_idx, end_idx = field_info
+                    
+                    if field_name == 'City,State':
+                        # Get both City and State values
+                        city = str(data.get('City', '')).strip()
+                        state = str(data.get('State', '')).strip()
+                        if city and state:
+                            value = f"{city}, {state}"
                         else:
-                            high = mid - 1  # Try smaller font
+                            value = city or state
+                        if value:
+                            field_values.append(value)
+                    else:
+                        value = str(data.get(field_name, '')).strip()
+                        if value:
+                            field_values.append(value)
+                
+                if not field_values:
+                    continue
+                
+                max_font_size = 72
+                best_size = 0
+                
+                for size in range(12, max_font_size + 1):
+                    try:
+                        font = self._get_font(name, size)
+                        total_height = 0
+                        max_width = 0
+                        
+                        for value in field_values:
+                            bbox = draw.textbbox((0, 0), value, font=font)
+                            total_height += (bbox[3] - bbox[1]) * 1.2
+                            max_width = max(max_width, bbox[2] - bbox[0])
+                        
+                        if total_height <= abs_h * 0.9 and max_width <= abs_w * 0.9:
+                            best_size = size
+                        else:
+                            break
                             
                     except Exception:
-                        high = mid - 1  # On error, try smaller font
-                
-                # Use the best fitting font size
-                font_size = best_size if best_size > 0 else 12
-                try:
-                    font = self._get_font(name, font_size)
-                    text_bbox = draw.textbbox((0, 0), value, font=font)
-                    text_width = text_bbox[2] - text_bbox[0]
-                    text_height = text_bbox[3] - text_bbox[1]
-                    
-                    # Center text in the bounding box
-                    text_x = abs_x + (abs_w - text_width) // 2
-                    text_y = abs_y + (abs_h - text_height) // 2
-                    
-                    # Draw text
-                    draw.text((text_x, text_y), value, font=font, fill=(0, 0, 0, 255))
-                    
-                except Exception as e:
-                    print(f"Failed to render text '{value}': {e}")
+                        break
+                        
+                if best_size > 0:
+                    try:
+                        font = self._get_font(name, best_size)
+                        y_offset = 2
+                        
+                        for value in field_values:
+                            if value:
+                                text_bbox = draw.textbbox((0, 0), value, font=font)
+                                text_width = text_bbox[2] - text_bbox[0]
+                                text_height = text_bbox[3] - text_bbox[1]
+                                
+                                text_x = abs_x + 5
+                                text_y = abs_y + y_offset
+                                
+                                draw.text((text_x, text_y), value, font=font, fill=(0, 0, 0, 255))
+                                
+                                y_offset += text_height * 1.2
+                                y_offset += text_height * 1.2
+                        
+                    except Exception:
+                        pass 
             
-            # Handle signature field if it exists
             signature_field = next((f for f in self.spec['fields'] if f['name'].lower() == 'signature'), None)
             if signature_field and 'FullName' in data:
                 try:
@@ -138,15 +164,12 @@ class DocumentGenerator:
                     abs_w = int(w * self.spec['width'])
                     abs_h = int(h * self.spec['height'])
                     
-                    # Get signature text (use FullName from data)
                     signature_text = data['FullName']
                     
-                    # Calculate maximum font size that fits the width with some padding
-                    max_font_size = min(72, abs_h)  # Start with a reasonable max size
+                    max_font_size = min(72, abs_h)
                     min_font_size = 6
                     best_size = min_font_size
                     
-                    # Try with signature font first
                     try:
                         # Binary search for best font size
                         low = min_font_size
@@ -158,7 +181,7 @@ class DocumentGenerator:
                                 font = ImageFont.truetype(str(SIGNATURE_FONT), mid)
                                 text_width = draw.textlength(signature_text, font=font)
                                 
-                                if text_width <= abs_w * 0.9:  # 90% of width to add some padding
+                                if text_width <= abs_w * 0.9:
                                     best_size = mid
                                     low = mid + 1
                                 else:
@@ -166,30 +189,25 @@ class DocumentGenerator:
                             except Exception:
                                 high = mid - 1
                         
-                        # Use the best fitting font size
                         sig_font = ImageFont.truetype(str(SIGNATURE_FONT), best_size)
                         
-                        # Draw the signature with left alignment and slight vertical adjustment (move up by 10%)
                         text_bbox = draw.textbbox((0, 0), signature_text, font=sig_font)
                         text_height = text_bbox[3] - text_bbox[1]
                         
-                        # Position signature with left alignment and slight vertical adjustment
-                        text_x = abs_x + 5  # Small left padding
-                        text_y = abs_y + (abs_h - text_height) // 2 - int(abs_h * 0.1)  # Move up slightly
+                        text_x = abs_x + 5
+                        text_y = abs_y + 2
                         
                         draw.text((text_x, text_y), signature_text, font=sig_font, fill=(0, 0, 0, 255))
                         
                     except Exception as e:
                         print(f"Could not use signature font, falling back to italic: {e}")
-                        # Fallback to italic text if signature font fails
                         font = ImageFont.truetype(str(DEFAULT_FONT), min(14, abs_h))
                         font = font.font_variant(style='italic')
                         text_bbox = draw.textbbox((0, 0), signature_text, font=font)
                         text_width = text_bbox[2] - text_bbox[0]
                         text_height = text_bbox[3] - text_bbox[1]
                         
-                        # Scale font to fit width if needed
-                        if text_width > abs_w * 0.9:  # 90% of width
+                        if text_width > abs_w * 0.9:
                             scale_factor = (abs_w * 0.9) / text_width
                             font_size = int(min(14, abs_h) * scale_factor)
                             font = ImageFont.truetype(str(DEFAULT_FONT), max(6, font_size))
@@ -197,9 +215,8 @@ class DocumentGenerator:
                             text_bbox = draw.textbbox((0, 0), signature_text, font=font)
                             text_height = text_bbox[3] - text_bbox[1]
                         
-                        # Position signature with left alignment and slight vertical adjustment
-                        text_x = abs_x + 5  # Small left padding
-                        text_y = abs_y + (abs_h - text_height) // 2 - int(abs_h * 0.1)  # Move up slightly
+                        text_x = abs_x + 5
+                        text_y = abs_y + 2
                         
                         draw.text((text_x, text_y), signature_text, font=font, fill=(0, 0, 0, 255))
                 
@@ -279,10 +296,8 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     try:
-        # Initialize generator
         generator = DocumentGenerator(cleaned_template, spec_file, args.font, args.font_size)
         
-        # Load data
         with open(data_file) as f:
             reader = csv.DictReader(f)
             data = list(reader)
@@ -291,20 +306,17 @@ def main():
             print("ERROR: No data found in the CSV file")
             return
             
-        # Limit number of documents if count is specified
         count = min(args.count, len(data)) if args.count else len(data)
         
         if args.count and args.count > len(data):
             print(f"Only {len(data)} rows available, generating {count} documents")
         
-        # Generate documents
         if count > 1:
             generated_files = generate_batch(generator, data[:count], output_dir, count)
             print("\nGenerated documents:")
             for i, file_path in enumerate(generated_files, 1):
                 print(f"  {i}. {file_path}")
         else:
-            # Single document
             output_path = output_dir / f"{args.doc_type}1.png"
             generator.generate(data[0], output_path=output_path)
             print(str(output_path))
