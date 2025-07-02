@@ -7,9 +7,6 @@ from PIL import Image, ImageDraw, ImageFont
 import argparse
 import random
 
-# -------------------------
-# Config & constants
-# -------------------------
 FONTS_DIR = Path(__file__).parent.parent / 'fonts'
 DEFAULT_FONT = FONTS_DIR / 'OpenSans_SemiCondensed-Regular.ttf'
 SIGNATURE_FONT = FONTS_DIR / 'signature.ttf'
@@ -323,27 +320,34 @@ def main():
     if args.count and args.count > max_docs:
         print(f"Only {max_docs} rows available, generating {count} documents")
 
+    # Choose a single subtype for this batch
+    if len(subtype_list) == 1:
+        chosen_subtype = subtype_list[0]
+    else:
+        chosen_subtype = subtype_list[0] if args.no_random else random.choice(subtype_list)
+        print(f"Randomly selected subtype: {chosen_subtype}")
+
+    cleaned_template = base_dir / 'output' / 'clean_templates' / f"{chosen_subtype}_clean.png"
+    spec_file       = base_dir / 'output' / 'clean_templates' / f"{chosen_subtype}_spec.json"
+    if not cleaned_template.exists() or not spec_file.exists():
+        print(f"ERROR: Cleaned assets for '{chosen_subtype}' not found. Run 'python clean_template.py {chosen_subtype}' first.")
+        return
+
+    # Create generator once
+    generator = DocumentGenerator(cleaned_template, spec_file, args.font, args.font_size)
+
     generated_files = []
     for i in range(count):
-        # Pick subtype
-        if len(subtype_list) == 1:
-            subtype = subtype_list[0]
-        else:
-            subtype = subtype_list[0] if args.no_random else random.choice(subtype_list)
-        
-        cleaned_template = base_dir / 'output' / 'clean_templates' / f"{subtype}_clean.png"
-        spec_file = base_dir / 'output' / 'clean_templates' / f"{subtype}_spec.json"
         if not cleaned_template.exists() or not spec_file.exists():
             print(f"Skipping {subtype}: cleaned assets missing. Run 'python clean_template.py {subtype}' first.")
             continue
         
         try:
-            generator = DocumentGenerator(cleaned_template, spec_file, args.font, args.font_size)
-            output_path = output_dir / f"{subtype}_{i+1}.png"
+            output_path = output_dir / f"{chosen_subtype}_{i+1}.png"
             generator.generate(data_rows[i], output_path=output_path)
             generated_files.append(str(output_path))
         except Exception as e:
-            print(f"Error generating document {i+1} ({subtype}): {e}")
+            print(f"Error generating document {i+1} ({chosen_subtype}): {e}")
 
     # Summary
     if generated_files:
@@ -405,10 +409,6 @@ def main():
         print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
-
-# -----------------------------------------------------------------------------
-# Entry
-# -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()

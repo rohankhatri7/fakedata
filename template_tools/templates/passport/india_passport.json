@@ -55,7 +55,7 @@
       "mask": null
     },
     {
-      "label": "lastname",
+      "label": "LastName",
       "points": [
         [
           351.5,
@@ -81,7 +81,7 @@
       "mask": null
     },
     {
-      "label": "fullname",
+      "label": "FullName",
       "points": [
         [
           349.5,
@@ -107,7 +107,7 @@
       "mask": null
     },
     {
-      "label": "dob",
+      "label": "DOB",
       "points": [
         [
           347.5,
@@ -133,7 +133,7 @@
       "mask": null
     },
     {
-      "label": "pob",
+      "label": "blank",
       "points": [
         [
           352.5,
@@ -153,13 +153,13 @@
         ]
       ],
       "group_id": null,
-      "description": null,
+      "description": "",
       "shape_type": "polygon",
       "flags": {},
       "mask": null
     },
     {
-      "label": "poi",
+      "label": "blank",
       "points": [
         [
           348.5,
@@ -179,13 +179,13 @@
         ]
       ],
       "group_id": null,
-      "description": null,
+      "description": "",
       "shape_type": "polygon",
       "flags": {},
       "mask": null
     },
     {
-      "label": "doi",
+      "label": "blank",
       "points": [
         [
           352.5,
@@ -211,7 +211,7 @@
       "mask": null
     },
     {
-      "label": "doe",
+      "label": "blank",
       "points": [
         [
           702.5,
