@@ -83,42 +83,33 @@ class TemplateCleaner:
         if output_path is None:
             output_path = self.template_path.parent / f"{self.template_path.stem}_clean{self.template_path.suffix}"
         
-        # Work with the original image in its original color space
         img_rgb = self.image.copy()
         
-        # Create a clean mask (binary)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         mask = cv2.morphologyEx(self.mask, cv2.MORPH_CLOSE, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         
         if method == 'white':
-            # Simple white fill for clean backgrounds
             white = np.full_like(img_rgb, 255)
             img_rgb[mask > 0] = white[mask > 0]
             cleaned = img_rgb
-            # Optional slight blur around edges for white fill
             if blur_kernel and blur_kernel % 2 == 1 and blur_kernel > 1:
                 mask_blur = cv2.GaussianBlur(mask, (blur_kernel, blur_kernel), 0)
                 mask_blur_3 = np.stack([mask_blur]*3,-1)/255.0
                 base = img_rgb.astype(float)
                 cleaned = (mask_blur_3*base + (1-mask_blur_3)*cleaned).astype(np.uint8)
         else:
-            # Convert to BGR only for inpainting
             img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
             
-            # Create border around mask to prevent edge artifacts
             border = 5
             mask_with_border = cv2.copyMakeBorder(mask, border, border, border, border, 
                                                cv2.BORDER_CONSTANT, value=0)
             
-            # Dilate mask to ensure full coverage
             mask_dilated = cv2.dilate(mask_with_border, kernel, iterations=2)
             
-            # Add border to image for inpainting
             img_with_border = cv2.copyMakeBorder(img_bgr, border, border, border, border, 
                                               cv2.BORDER_REPLICATE)
             
-            # Apply inpainting with optimized parameters
             inpaint_radius = 3
             cleaned_bgr = cv2.inpaint(
                 img_with_border,
@@ -127,25 +118,19 @@ class TemplateCleaner:
                 flags=cv2.INPAINT_TELEA
             )
             
-            # Remove border
             h, w = img_bgr.shape[:2]
             cleaned_bgr = cleaned_bgr[border:border+h, border:border+w]
             
-            # Convert back to RGB
             cleaned_rgb = cv2.cvtColor(cleaned_bgr, cv2.COLOR_BGR2RGB)
             
-            # Edge-aware smoothing on the inpainted result
             smoothed = cv2.edgePreservingFilter(cleaned_rgb, flags=1, sigma_s=30, sigma_r=0.15)
-            # Optional extra blur
             if blur_kernel and blur_kernel % 2 == 1 and blur_kernel > 1:
                 smoothed = cv2.GaussianBlur(smoothed, (blur_kernel, blur_kernel), 0)
             
-            # Only update the masked regions
             mask_3ch = np.stack([mask] * 3, axis=-1).astype(bool)
             img_rgb[mask_3ch] = smoothed[mask_3ch]
             cleaned = img_rgb
         
-        # Save the cleaned image (no color space conversion needed)
         Image.fromarray(cleaned).save(output_path, quality=95, dpi=(300, 300))
         return output_path
     
@@ -178,11 +163,9 @@ def main():
     
     args = parser.parse_args()
     
-    # Set up paths
     templates_dir = Path(__file__).parent / 'templates'
     output_dir = Path(args.output_dir)
     
-    # Build file paths based on nested directory structure
     base_type = args.doc_type.split('_')[-1]  # e.g., 'adp_paystub' -> 'paystub'
     template_path = templates_dir / base_type / f"{args.doc_type}.png"
     json_path = templates_dir / base_type / f"{args.doc_type}.json"
