@@ -169,7 +169,7 @@ class TemplateCleaner:
 def main():
     parser = argparse.ArgumentParser(description='Clean document template and generate spec file')
     parser.add_argument('doc_type', help='Document type (e.g., passport, adp_paystub)')
-    parser.add_argument('--output-dir', default='output', help='Output directory (default: output)')
+    parser.add_argument('--output-dir', default='output/clean_templates', help='Output directory (default: output/clean_templates)')
     parser.add_argument('--method', default='inpaint_enhanced', 
                        choices=['inpaint_enhanced', 'white'], 
                        help='Cleaning method (default: inpaint_enhanced)')
@@ -182,9 +182,10 @@ def main():
     templates_dir = Path(__file__).parent / 'templates'
     output_dir = Path(args.output_dir)
     
-    # Build file paths
-    template_path = templates_dir / f"{args.doc_type}.png"
-    json_path = templates_dir / f"{args.doc_type}.json"
+    # Build file paths based on nested directory structure
+    base_type = args.doc_type.split('_')[-1]  # e.g., 'adp_paystub' -> 'paystub'
+    template_path = templates_dir / base_type / f"{args.doc_type}.png"
+    json_path = templates_dir / base_type / f"{args.doc_type}.json"
     
     # Check if files exist
     if not template_path.exists():

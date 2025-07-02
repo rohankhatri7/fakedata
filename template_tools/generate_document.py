@@ -5,11 +5,22 @@ import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import argparse
+import random
 
-# Font paths
+# -------------------------
+# Config & constants
+# -------------------------
 FONTS_DIR = Path(__file__).parent.parent / 'fonts'
 DEFAULT_FONT = FONTS_DIR / 'OpenSans_SemiCondensed-Regular.ttf'
 SIGNATURE_FONT = FONTS_DIR / 'signature.ttf'
+
+# Map base document types to their available subtypes
+DOCUMENT_SUBTYPES = {
+    'passport': ['us_passport', 'india_passport'],
+    'paystub': ['adp_paystub', 'paychex_paystub'],
+    'ssn': ['us_ssn'],  # example – extend as needed
+}
+
 
 class DocumentGenerator:
     def __init__(self, template_path, spec_path, font_path=None, font_size=12):
@@ -256,7 +267,9 @@ def generate_batch(generator, data_list, output_dir, count=None):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate documents from template and data')
-    parser.add_argument('doc_type', help='Document type (e.g., passport, paystub)')
+    parser.add_argument('doc_type', help='Document type base (passport, paystub, ssn) or specific subtype (e.g., us_passport)')
+    parser.add_argument('--subtype', help='Explicit subtype to use (e.g., us_passport). Overrides random choice.')
+    parser.add_argument('--no-random', action='store_true', help='Disable random subtype selection when base doc_type is given')
     parser.add_argument('--data', default='data/sample_data.csv', help='Path to CSV data file (default: data/sample_data.csv)')
     parser.add_argument('--output-dir', default='output/documents', help='Output directory (default: output/documents)')
     parser.add_argument('--font', help='Path to custom font file')
@@ -270,14 +283,82 @@ def main():
     templates_dir = base_dir / 'templates'
     output_dir = Path(args.output_dir)
     
-    # Build file paths
-    cleaned_template = base_dir / 'output' / f"{args.doc_type}_clean.png"
-    spec_file = base_dir / 'output' / f"{args.doc_type}_spec.json"
+    # Resolve subtype(s)
+    if '_' in args.doc_type:
+        # User already passed a full subtype
+        base_type = args.doc_type.split('_')[-1]
+        subtype_list = [args.doc_type]
+    else:
+        base_type = args.doc_type.lower()
+        subtype_list = DOCUMENT_SUBTYPES.get(base_type)
+        if not subtype_list:
+            print(f"ERROR: Unknown document type '{args.doc_type}'. Available: {list(DOCUMENT_SUBTYPES.keys())}")
+            return
+    
+    # Validate explicit subtype
+    if args.subtype:
+        if args.subtype not in subtype_list:
+            print(f"ERROR: Subtype '{args.subtype}' not valid for base type '{base_type}'. Choose from: {subtype_list}")
+            return
+        subtype_list = [args.subtype]
+    
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Load data
+    data_file = Path(args.data)
+    if not data_file.exists():
+        print(f"ERROR: Data file not found: {data_file}")
+        return
+    with open(data_file) as f:
+        reader = csv.DictReader(f)
+        data_rows = list(reader)
+    if not data_rows:
+        print("ERROR: No data found in the CSV file")
+        return
+    
+    # Determine how many docs to generate
+    max_docs = len(data_rows)
+    count = min(args.count, max_docs) if args.count else max_docs
+    if args.count and args.count > max_docs:
+        print(f"Only {max_docs} rows available, generating {count} documents")
+
+    generated_files = []
+    for i in range(count):
+        # Pick subtype
+        if len(subtype_list) == 1:
+            subtype = subtype_list[0]
+        else:
+            subtype = subtype_list[0] if args.no_random else random.choice(subtype_list)
+        
+        cleaned_template = base_dir / 'output' / 'clean_templates' / f"{subtype}_clean.png"
+        spec_file = base_dir / 'output' / 'clean_templates' / f"{subtype}_spec.json"
+        if not cleaned_template.exists() or not spec_file.exists():
+            print(f"Skipping {subtype}: cleaned assets missing. Run 'python clean_template.py {subtype}' first.")
+            continue
+        
+        try:
+            generator = DocumentGenerator(cleaned_template, spec_file, args.font, args.font_size)
+            output_path = output_dir / f"{subtype}_{i+1}.png"
+            generator.generate(data_rows[i], output_path=output_path)
+            generated_files.append(str(output_path))
+        except Exception as e:
+            print(f"Error generating document {i+1} ({subtype}): {e}")
+
+    # Summary
+    if generated_files:
+        print("\nGenerated documents:")
+        for idx, fp in enumerate(generated_files, 1):
+            print(f"  {idx}. {fp}")
+    else:
+        print("No documents generated due to previous errors.")
+    cleaned_template = base_dir / 'output' / 'clean_templates' / f"{args.doc_type}_clean.png"
+    spec_file = base_dir / 'output' / 'clean_templates' / f"{args.doc_type}_spec.json"
     data_file = Path(args.data)
     
     # Check if files exist
     if not cleaned_template.exists():
-        print(f"ERROR: Cleaned template not found: {cleaned_template}")
+
         print(f"Please run 'python clean_template.py {args.doc_type}' first")
         return
         
@@ -324,6 +405,10 @@ def main():
         print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
+
+# -----------------------------------------------------------------------------
+# Entry
+# -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
