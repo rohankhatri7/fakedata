@@ -1,21 +1,27 @@
 import json
 import csv
 import os
-import sys
+import numpy as np
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import argparse
 import random
 
 FONTS_DIR = Path(__file__).parent.parent / 'fonts'
 DEFAULT_FONT = FONTS_DIR / 'OpenSans_SemiCondensed-Regular.ttf'
 SIGNATURE_FONT = FONTS_DIR / 'signature.ttf'
+# Available handwriting style fonts
+HANDWRITING_FONTS = [
+    FONTS_DIR / 'handwriting.ttf',
+    FONTS_DIR / 'handwriting2.ttf',
+    FONTS_DIR / 'handwriting3.ttf'
+]
 
 # Map base document types to their available subtypes
 DOCUMENT_SUBTYPES = {
     'passport': ['us_passport', 'india_passport'],
     'paystub': ['adp_paystub', 'paychex_paystub'],
-    'ssn': ['us_ssn'],  # example – extend as needed
+    'ssn': ['us_ssn'],
 }
 
 
@@ -59,7 +65,28 @@ class DocumentGenerator:
                     
         return self.font_cache[cache_key]
     
-    def _composite_on_a4(self, img):
+    def _add_noise_effects(self, img):
+        """Add realistic noise and effects to the document"""
+        # Random blur
+        if random.random() > 0.4:
+            blur_radius = random.uniform(0.8, 2.0)
+            img = img.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+        
+        # Random brightness/contrast adjustment
+        if random.random() > 0.6:
+            img = ImageEnhance.Brightness(img).enhance(random.uniform(0.95, 1.05))
+            img = ImageEnhance.Contrast(img).enhance(random.uniform(0.97, 1.03))
+        
+        # Add grain
+        if random.random() > 0.2:
+            np_img = np.array(img.convert('L'))
+            noise = np.random.normal(0, random.uniform(0.5, 1.5), np_img.shape).astype(np.uint8)
+            noise_img = Image.fromarray(np.clip(np_img.astype(np.int16) + noise, 0, 255).astype(np.uint8), 'L')
+            img = Image.blend(img.convert('L'), noise_img, 0.2)
+        
+        return img.convert('RGBA')
+
+    def _composite_on_a4(self, img, data=None):
         """Composite the document onto an A4 page with random positioning and scaling"""
         try:
             # Path to blank page template
@@ -71,42 +98,147 @@ class DocumentGenerator:
             a4_img = Image.open(blank_path).convert('RGBA')
             a4_width, a4_height = a4_img.size
             
-            # Convert document to grayscale
+            # Convert document to grayscale and apply noise effects
             if img.mode != 'L':
-                img = img.convert('L').convert('RGBA')
+                img = img.convert('L')
             
-            # Compute maximum width/height available after margins
-            margin = int(min(a4_width, a4_height) * 0.05)
-            max_w_avail = a4_width - 2 * margin
-            max_h_avail = a4_height - 2 * margin
-
-            # Random scale between 60% and 100% of the available space (never exceeding page)
-            max_scale_w = max_w_avail / img.width
-            max_scale_h = max_h_avail / img.height
-            max_scale   = min(max_scale_w, max_scale_h, 1.0)
-            # pick scale between 60% and 90% of the maximum achievable
-            upper = max_scale * 0.9  # up to 90% of max possible
-            lower = max_scale * 0.6  # down to 60% of max possible
-            if lower > upper:
-                lower = upper * 0.9  # fallback: very close to max if needed
-            scale = random.uniform(lower, upper)
-
+            img = self._add_noise_effects(img)
+            
+            margin_x = int(a4_width * random.uniform(0.15, 0.20))
+            margin_y = int(a4_height * random.uniform(0.15, 0.20))
+            
+            max_w_avail = a4_width - 2 * margin_x
+            max_h_avail = a4_height - 2 * margin_y
+            
+            max_doc_width = int(max_w_avail * 0.8)
+            max_doc_height = int(max_h_avail * 0.8)
+            
+            scale_w = max_doc_width / img.width
+            scale_h = max_doc_height / img.height
+            
+            scale = min(scale_w, scale_h, 1.0)
+            
+            scale = scale * random.uniform(0.6, 0.9)
             new_size = (int(img.width * scale), int(img.height * scale))
-            max_width = int(a4_width * 0.9)
-            min_width = int(a4_width * 0.6)
-            target_width = random.randint(min_width, max_width)
-            
-            # Resize keeping aspect ratio
             img = img.resize(new_size, Image.Resampling.LANCZOS)
             
-            # Random position respecting margins
-            x = random.randint(margin, a4_width - img.width - margin)
-            y = random.randint(margin, a4_height - img.height - margin)
+            min_x = margin_x
+            max_x = a4_width - img.width - margin_x
+            min_y = margin_y
+            max_y = a4_height - img.height - margin_y
             
-            # Composite onto A4
-            a4_img.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+            if min_x > max_x:
+                min_x = max_x = (a4_width - img.width) // 2
+            if min_y > max_y:
+                min_y = max_y = (a4_height - img.height) // 2
+            if min_x > max_x:
+                min_x = max_x = (a4_width - img.width) // 2
+            if min_y > max_y:
+                min_y = max_y = (a4_height - img.height) // 2
+                
+            x = random.randint(min_x, max_x)
+            y = random.randint(min_y, max_y)
             
-            return a4_img.convert('L').convert('RGBA')  # Ensure grayscale output
+            if random.random() > 0.5:
+                img = img.rotate(random.uniform(-2, 2), expand=True, resample=Image.BICUBIC, fillcolor=255)
+            
+            # Random transparency
+            if random.random() > 0.5:
+                alpha = img.split()[3]
+                alpha = alpha.point(lambda p: p * random.uniform(0.9, 1.0))
+                img.putalpha(alpha)
+            
+            # Random paper texture overlay
+            if random.random() > 0.8:
+                paper = Image.new('L', a4_img.size, 255)
+                noise = Image.effect_noise(paper.size, random.randint(10, 30))
+                a4_img = Image.blend(a4_img.convert('RGB'), 
+                                   Image.merge('RGB', [noise]*3), 
+                                   0.02)
+            
+            # Convert to RGBA if not already
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            
+            final_img = Image.new('RGBA', a4_img.size, (255, 255, 255, 255))
+            
+            # Paste the A4 background (convert to RGBA if needed)
+            if a4_img.mode != 'RGBA':
+                a4_img = a4_img.convert('RGBA')
+            final_img.paste(a4_img, (0, 0), a4_img)
+            
+            # Paste the document
+            try:
+                # Create a temporary RGBA image for pasting
+                temp_img = Image.new('RGBA', final_img.size, (0, 0, 0, 0))
+                temp_img.paste(img, (x, y), img)
+                # Composite the document onto the final image
+                final_img = Image.alpha_composite(final_img, temp_img)
+
+                if data and (data.get('AccountID') or data.get('HealthBenefitID')):
+                    annotation_lines = []
+                    # Get the exact field names from CSV
+                    acc_id = data.get('AccountID')
+                    health_id = data.get('HealthBenefitID')
+                    if acc_id:
+                        annotation_lines.append(f"Account: {acc_id}")
+                    if health_id:
+                        annotation_lines.append(f"Health: {health_id}")
+                    if annotation_lines:
+                        annotation_text = "\n".join(annotation_lines)
+                        draw_anno = ImageDraw.Draw(final_img)
+                        base_font_size = int(a4_height * 0.018) 
+                        # Try random handwriting fonts until one loads successfully
+                        random.shuffle(HANDWRITING_FONTS)
+                        hw_font = None
+                        for font_path in HANDWRITING_FONTS:
+                            try:
+                                hw_font = ImageFont.truetype(str(font_path), base_font_size)
+                                break
+                            except Exception:
+                                continue
+                        if hw_font is None:
+                            hw_font = ImageFont.load_default()
+                        bbox = draw_anno.multiline_textbbox((0, 0), annotation_text, font=hw_font, spacing=2)
+                        bbox = draw_anno.multiline_textbbox((0, 0), annotation_text, font=hw_font, spacing=2)
+                        text_w = bbox[2] - bbox[0]
+                        text_h = bbox[3] - bbox[1]
+                        
+                        padding = int(a4_width * 0.03)
+                        
+                        anno_x = x + img.width + padding
+                        anno_y = y
+                        
+                        if anno_x + text_w > a4_width - margin_x - padding:
+                            anno_x = max(margin_x + padding, x - text_w - padding)
+                        
+                        if anno_y + text_h > a4_height - margin_y - padding:
+                            anno_y = max(margin_y + padding, a4_height - margin_y - text_h - padding)
+                        
+                        if y < anno_y + text_h and y + img.height > anno_y:
+                            if y >= margin_y + padding + text_h:
+                                anno_y = y - text_h - padding
+                            elif y + img.height + padding + text_h <= a4_height - margin_y:
+                                anno_y = y + img.height + padding
+                        
+                        anno_x = max(margin_x + padding, min(anno_x, a4_width - margin_x - text_w - padding))
+                        anno_y = max(margin_y + padding, min(anno_y, a4_height - margin_y - text_h - padding))
+                        
+                        draw_anno.multiline_text(
+                            (anno_x, anno_y), 
+                            annotation_text, 
+                            font=hw_font, 
+                            fill=(80, 80, 80, 220),
+                            spacing=2
+                        )
+
+            except ValueError as e:
+                print(f"Warning: Error pasting image: {e}")
+                # Fallback to non-transparent paste if composite fails
+                final_img.paste(img.convert('RGB'), (x, y))
+            
+            # Convert to grayscale then back to RGB for PDF compatibility
+            return final_img.convert('L').convert('RGB')
             
         except Exception as e:
             print(f"Error during A4 composition: {e}")
@@ -285,7 +417,7 @@ class DocumentGenerator:
             
             # Save or return the image
             # Composite onto A4 before saving
-            final_img = self._composite_on_a4(img)
+            final_img = self._composite_on_a4(img, data)
             
             if output_path:
                 final_img.save(output_path, 'PNG', quality=95, dpi=(300, 300))
@@ -324,10 +456,11 @@ def main():
     parser.add_argument('--subtype', help='Explicit subtype to use (e.g., us_passport). Overrides random choice.')
     parser.add_argument('--no-random', action='store_true', help='Disable random subtype selection when base doc_type is given')
     parser.add_argument('--data', default='data/sample_data.csv', help='Path to CSV data file (default: data/sample_data.csv)')
-    parser.add_argument('--output-dir', default='output/documents', help='Output directory (default: output/documents)')
     parser.add_argument('--font', help='Path to custom font file')
     parser.add_argument('--font-size', type=int, default=12, help='Base font size (default: 12)')
+    parser.add_argument('--output-dir', default='output/documents', help='Output directory (default: output/documents)')
     parser.add_argument('--count', type=int, help='Number of documents to generate (default: all rows in CSV)')
+    parser.add_argument('--pdf', choices=['single', 'multi'], help="Output PDFs: 'single' = separate PDF per doc, 'multi' = combined multi-page PDF")
     
     args = parser.parse_args()
     
@@ -335,6 +468,15 @@ def main():
     base_dir = Path(__file__).parent
     templates_dir = base_dir / 'templates'
     output_dir = Path(args.output_dir)
+    
+    # Create output directories
+    documents_dir = base_dir / 'output' / 'documents'
+    pdfs_dir = base_dir / 'output' / 'pdfs'
+    documents_dir.mkdir(parents=True, exist_ok=True)
+    pdfs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Set output directory for PNGs
+    output_dir = Path(args.output_dir) if args.output_dir else documents_dir
     
     # Resolve subtype(s)
     if '_' in args.doc_type:
@@ -410,6 +552,30 @@ def main():
         print("\nGenerated documents:")
         for idx, fp in enumerate(generated_files, 1):
             print(f"  {idx}. {fp}")
+        # Optional PDF conversion
+        if args.pdf:
+            if args.pdf == 'single':
+                print("\nGenerating single-page PDFs…")
+                for img_path in generated_files:
+                    # Create PDF path in the pdfs directory with the same filename
+                    pdf_filename = Path(img_path).name.replace('.png', '.pdf')
+                    pdf_path = pdfs_dir / pdf_filename
+                    try:
+                        with Image.open(img_path) as im:
+                            im.convert('RGB').save(pdf_path, 'PDF', resolution=300)
+                        print(f"  → {pdf_path}")
+                    except Exception as e:
+                        print(f"  Failed to convert {img_path} to PDF: {e}")
+            elif args.pdf == 'multi':
+                print("\nGenerating combined multi-page PDF…")
+                pdf_path = pdfs_dir / f"{chosen_subtype}_batch.pdf"
+                try:
+                    with Image.open(generated_files[0]).convert('RGB') as img1:
+                        img1.save(pdf_path, 'PDF', resolution=300, save_all=True, 
+                                append_images=[Image.open(f).convert('RGB') for f in generated_files[1:]])
+                    print(f"  → {pdf_path}")
+                except Exception as e:
+                    print(f"  Failed to create multi-page PDF: {e}")
     else:
         print("No documents generated due to previous errors.")
     cleaned_template = base_dir / 'output' / 'clean_templates' / f"{args.doc_type}_clean.png"
@@ -432,8 +598,7 @@ def main():
         print("Please provide a valid CSV file with --data")
         return
     
-    # Create output directory if it doesn't exist
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Output directories are already created at the beginning of the function
     
     try:
         generator = DocumentGenerator(cleaned_template, spec_file, args.font, args.font_size)
