@@ -59,6 +59,59 @@ class DocumentGenerator:
                     
         return self.font_cache[cache_key]
     
+    def _composite_on_a4(self, img):
+        """Composite the document onto an A4 page with random positioning and scaling"""
+        try:
+            # Path to blank page template
+            blank_path = Path(__file__).parent / 'templates' / 'blank.png'
+            if not blank_path.exists():
+                print(f"Warning: A4 template not found at {blank_path}")
+                return img.convert('L').convert('RGBA')
+
+            a4_img = Image.open(blank_path).convert('RGBA')
+            a4_width, a4_height = a4_img.size
+            
+            # Convert document to grayscale
+            if img.mode != 'L':
+                img = img.convert('L').convert('RGBA')
+            
+            # Compute maximum width/height available after margins
+            margin = int(min(a4_width, a4_height) * 0.05)
+            max_w_avail = a4_width - 2 * margin
+            max_h_avail = a4_height - 2 * margin
+
+            # Random scale between 60% and 100% of the available space (never exceeding page)
+            max_scale_w = max_w_avail / img.width
+            max_scale_h = max_h_avail / img.height
+            max_scale   = min(max_scale_w, max_scale_h, 1.0)
+            # pick scale between 60% and 90% of the maximum achievable
+            upper = max_scale * 0.9  # up to 90% of max possible
+            lower = max_scale * 0.6  # down to 60% of max possible
+            if lower > upper:
+                lower = upper * 0.9  # fallback: very close to max if needed
+            scale = random.uniform(lower, upper)
+
+            new_size = (int(img.width * scale), int(img.height * scale))
+            max_width = int(a4_width * 0.9)
+            min_width = int(a4_width * 0.6)
+            target_width = random.randint(min_width, max_width)
+            
+            # Resize keeping aspect ratio
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Random position respecting margins
+            x = random.randint(margin, a4_width - img.width - margin)
+            y = random.randint(margin, a4_height - img.height - margin)
+            
+            # Composite onto A4
+            a4_img.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+            
+            return a4_img.convert('L').convert('RGBA')  # Ensure grayscale output
+            
+        except Exception as e:
+            print(f"Error during A4 composition: {e}")
+            return img.convert('L').convert('RGBA')  # Fallback to grayscale
+            
     def generate(self, data, output_path=None):
         try:
             img = self.template.copy()
@@ -231,10 +284,13 @@ class DocumentGenerator:
                     print(f"Failed to render signature: {e}")
             
             # Save or return the image
+            # Composite onto A4 before saving
+            final_img = self._composite_on_a4(img)
+            
             if output_path:
-                img.save(output_path)
-                return output_path
-            return img
+                final_img.save(output_path, 'PNG', quality=95, dpi=(300, 300))
+            
+            return final_img
 
         except Exception as e:
             print(f"Failed to generate document: {e}")
